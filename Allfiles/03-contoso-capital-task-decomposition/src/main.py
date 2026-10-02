@@ -14,6 +14,7 @@ def validate_plan(plan: dict[str, Any], registry: dict[str, Any]) -> None:
     """Learner task: validate IDs, capabilities, dependencies, DAG, and final task."""
     # LAB PLACEHOLDER 1: Replace this line with the Task 1 sample.
     raise NotImplementedError("Complete validate_plan in Task 1")
+
 def ready_tasks(tasks: list[dict[str, Any]], completed: dict[str, Any]) -> list[dict[str, Any]]:
     """Learner task: select dependency-ready tasks or identify a deadlock."""
     # LAB PLACEHOLDER 2: Replace this line with the Task 2 sample.
@@ -22,14 +23,18 @@ def build_handoff(task: dict[str, Any], completed: dict[str, Any], correlation_i
     """Learner task: construct and size-check a context-preserving envelope."""
     # LAB PLACEHOLDER 3: Replace this line with the Task 3 sample.
     raise NotImplementedError("Complete build_handoff in Task 3")
+
 def should_replan(result: dict[str, Any], replan_count: int) -> bool:
     """Learner task: allow one evidence-driven replan only."""
     # LAB PLACEHOLDER 4: Replace this line with the Task 4 sample.
     raise NotImplementedError("Complete should_replan in Task 4")
+
 def response_text(response: Any) -> str:
     return "\n".join(getattr(p,"text","") for i in response.output if getattr(i,"type",None)=="message" for p in getattr(i,"content",[])).strip()
+
 def call_agent(openai: Any, content: str) -> Any:
     return openai.responses.create(input=content)
+
 def run(path: Path) -> dict[str, Any]:
     data=json.loads(path.read_text(encoding="utf-8")); started=time.perf_counter(); correlation_id=str(uuid.uuid4())
     project=AIProjectClient(endpoint=os.environ["FOUNDRY_PROJECT_ENDPOINT"],credential=DefaultAzureCredential()); model=os.environ["FOUNDRY_MODEL_NAME"]
@@ -56,6 +61,7 @@ ROOT_INSTRUCTIONS=(
     "complex, return three through six tasks and decompose the query across "
     "relevant evidence specialists before final synthesis. Registry: "
 )
+
 def main()->None:
     p=argparse.ArgumentParser();p.add_argument("--input",type=Path,default=Path("assets/research-query.json"));a=p.parse_args();logging.basicConfig(level=logging.INFO,format="%(levelname)s %(message)s");print(json.dumps(run(a.input),indent=2))
 if __name__=="__main__":main()
