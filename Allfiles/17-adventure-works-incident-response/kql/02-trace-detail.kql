@@ -1,0 +1,5 @@
+let targetOperation = "__OPERATION_ID__";
+union
+  (AppRequests | where OperationId == targetOperation | project TimeGenerated, OperationId, ParentId, Id, SpanName=Name, DurationMs, Success, ResultCode, Properties),
+  (AppDependencies | where OperationId == targetOperation | project TimeGenerated, OperationId, ParentId, Id, SpanName=Name, DurationMs, Success, ResultCode, Properties)
+| order by TimeGenerated asc

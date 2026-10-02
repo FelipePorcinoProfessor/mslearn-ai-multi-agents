@@ -1,0 +1,9 @@
+{
+  "tool": "lookup_drug_interaction",
+  "required_major": 1,
+  "arguments": {
+    "drug_a": "atorvastatin",
+    "drug_b": "clarithromycin",
+    "correlation_id": "lab06-drug-001"
+  }
+}

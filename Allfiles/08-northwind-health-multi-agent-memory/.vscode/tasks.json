@@ -1,0 +1,72 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {"label": "Lab 08: preflight", "type": "shell", "command": "python scripts/preflight.py", "problemMatcher": []},
+    {"label": "Lab 08: compile Bicep", "type": "shell", "command": "az bicep build --file infra/main.bicep", "problemMatcher": []},
+    {"label": "Lab 08: dry-run consolidation", "type": "shell", "command": "python -m src.main consolidate --patient-id synthetic-patient-100 --source-id mem-100-3 --source-id mem-100-4 --source-id mem-100-5 --summary \"Repeatedly requests written reminders before synthetic follow-ups.\" --reviewer-id reviewer-07 --dry-run", "problemMatcher": []},
+    {
+      "label": "Validate prerequisites",
+      "type": "aitk",
+      "command": "debug-check-prerequisites",
+      "args": {"portOccupancy": [5679, 8088]}
+    },
+    {
+      "label": "Run Agent/Workflow HTTP Server",
+      "type": "shell",
+      "command": "\"${workspaceFolder}\\.venv\\Scripts\\python.exe\" -m debugpy --listen 127.0.0.1:5679 agent.py",
+      "isBackground": true,
+      "options": {"cwd": "${workspaceFolder}"},
+      "dependsOn": ["Validate prerequisites"],
+      "problemMatcher": {
+        "pattern": [{"regexp": "^.*$", "file": 0, "location": 1, "message": 2}],
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*",
+          "endsPattern": "Application startup complete|[Rr]unning on|Started server process"
+        }
+      }
+    },
+    {
+      "label": "Open Agent Inspector",
+      "type": "shell",
+      "command": "echo '${input:openAgentInspector}'",
+      "presentation": {"reveal": "never"},
+      "dependsOn": ["Run Agent/Workflow HTTP Server"]
+    },
+    {
+      "label": "Run Agent/Workflow in Terminal",
+      "type": "shell",
+      "command": "\"${workspaceFolder}\\.venv\\Scripts\\python.exe\" -m debugpy --listen 127.0.0.1:5679 agent.py",
+      "isBackground": true,
+      "options": {"cwd": "${workspaceFolder}"},
+      "problemMatcher": {
+        "pattern": [{"regexp": "^.*$", "file": 0, "location": 1, "message": 2}],
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*",
+          "endsPattern": "Application startup complete|[Rr]unning on|Started server process"
+        }
+      }
+    },
+    {
+      "label": "Terminate All Tasks",
+      "command": "echo ${input:terminate}",
+      "type": "shell",
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "openAgentInspector",
+      "type": "command",
+      "command": "ai-mlstudio.openTestTool",
+      "args": {"triggeredFrom": "tasks", "port": 8088}
+    },
+    {
+      "id": "terminate",
+      "type": "command",
+      "command": "workbench.action.tasks.terminate",
+      "args": "terminateAll"
+    }
+  ]
+}

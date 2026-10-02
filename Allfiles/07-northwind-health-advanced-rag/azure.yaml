@@ -1,0 +1,6 @@
+name: lab07-northwind-rag
+metadata:
+  template: lab07-northwind-rag@0.0.1
+infra:
+  provider: bicep
+  path: infra

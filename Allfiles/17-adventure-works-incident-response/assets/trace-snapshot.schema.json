@@ -1,0 +1,15 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "type":"object",
+  "required":["schema_version","operation_id","spans","model_deployments","configuration_versions","prompts","prompt_hashes","tool_mocks","replay_mode"],
+  "properties":{
+    "operation_id":{"type":"string"},
+    "spans":{"type":"array"},
+    "model_deployments":{"type":"array"},
+    "configuration_versions":{"type":"array"},
+    "prompts":{"type":"object","additionalProperties":{"type":"string"}},
+    "prompt_hashes":{"type":"object","additionalProperties":{"type":"string"}},
+    "tool_mocks":{"type":"object","additionalProperties":{"type":"object","required":["mock_id","response","success","synthetic"]}},
+    "replay_mode":{"const":true}
+  }
+}

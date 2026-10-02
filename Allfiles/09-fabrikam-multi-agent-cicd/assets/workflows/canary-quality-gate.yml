@@ -1,0 +1,118 @@
+name: Assess dashboard canary quality
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        options: [development, staging, production]
+        required: true
+      deployment_run_id:
+        description: Run ID that produced the candidate release-set evidence
+        type: string
+        required: true
+      failed_agent:
+        type: choice
+        options: [scanner, reviewer, orchestrator]
+        required: true
+      metric_profile:
+        description: Deterministic exercise profile; live smoke evidence remains primary
+        type: choice
+        options: [healthy, regression]
+        required: true
+permissions:
+  contents: write
+  id-token: write
+  actions: read
+concurrency:
+  group: lab09-release-${{ inputs.environment }}
+  cancel-in-progress: false
+jobs:
+  assess:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -r requirements.txt
+      - name: Download version-bound deployment evidence
+        run: |
+          mkdir -p artifacts/candidate artifacts/verified
+          gh run download "${{ inputs.deployment_run_id }}" --name "deployment-evidence-${{ inputs.environment }}-${{ inputs.deployment_run_id }}" --dir artifacts/candidate
+          gh release download "verified-${{ inputs.environment }}" --pattern release-set.json --dir artifacts/verified
+          test -s artifacts/candidate/release-set.json
+          test -s artifacts/candidate/evaluation-evidence.json
+          python scripts/release_manifest.py \
+            --manifest artifacts/verified/release-set.json \
+            --environment "${{ inputs.environment }}"
+          test "$(jq -r .environment artifacts/candidate/release-set.json)" = "${{ inputs.environment }}"
+          test "$(jq -r .status artifacts/candidate/release-set.json)" = candidate
+          test "$(jq -r .status artifacts/candidate/evaluation-evidence.json)" = "passed"
+      - name: Exercise promote or rollback policy
+        run: >-
+          python -m src.main quality
+          --quality "assets/quality-metrics-${{ inputs.metric_profile }}.json"
+          --output artifacts/quality-decision.json
+      - id: quality
+        run: echo "action=$(jq -r .action artifacts/quality-decision.json)" >> "$GITHUB_OUTPUT"
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - uses: Azure/setup-azd@v2
+      - name: Select environment
+        run: AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd env select "${{ vars.AZURE_ENV_NAME }}"
+      - name: Promote dashboard candidate to 100 percent
+        if: steps.quality.outputs.action == 'promote'
+        run: |
+          resource_group="$(AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd env get-value AZURE_RESOURCE_GROUP_NAME)"
+          app="$(jq -r .dashboard.app_name artifacts/candidate/release-set.json)"
+          candidate_revision="$(jq -r .dashboard.revision artifacts/candidate/release-set.json)"
+          stable_revision="$(jq -r .dashboard.revision artifacts/verified/release-set.json)"
+          python scripts/apply_canary_decision.py \
+            --decision artifacts/quality-decision.json \
+            --resource-group "$resource_group" \
+            --app "$app" \
+            --stable-revision "$stable_revision" \
+            --strategy blue-green | tee artifacts/promotion-traffic.json
+          url="$(jq -r .dashboard.url artifacts/candidate/release-set.json)"
+          python scripts/finalize_release_set.py \
+            --manifest artifacts/candidate/release-set.json \
+            --output artifacts/release-set.json \
+            --app-name "$app" \
+            --revision "$candidate_revision" \
+            --release-channel stable \
+            --url "$url" \
+            --routing-evidence artifacts/promotion-traffic.json \
+            --status verified
+          stable_label_url="$(jq -r .dashboard.stable_label_url artifacts/release-set.json)"
+          curl --fail --retry 12 --retry-delay 10 "$stable_label_url/metadata" | tee artifacts/promoted-dashboard.json
+          test "$(jq -r .release_channel artifacts/promoted-dashboard.json)" = stable
+          expected_version="$(jq -r .agents.orchestrator.hosted_deployment.version artifacts/release-set.json)"
+          test "$(jq -r .orchestrator_version artifacts/promoted-dashboard.json)" = "$expected_version"
+          python scripts/release_manifest.py \
+            --manifest artifacts/release-set.json \
+            --environment "${{ inputs.environment }}" \
+            --app-name "$app"
+      - name: Persist last-verified release manifest
+        if: steps.quality.outputs.action == 'promote'
+        run: |
+          tag="verified-${{ inputs.environment }}"
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --target "$(jq -r .source.commit artifacts/release-set.json)" --title "Last verified ${{ inputs.environment }} release" --notes "Automation-owned rollback evidence."
+          gh release upload "$tag" artifacts/release-set.json --clobber
+      - name: Dispatch compatible-set rollback
+        if: steps.quality.outputs.action == 'rollback'
+        run: >-
+          gh api --method POST repos/${{ github.repository }}/dispatches
+          -f event_type=quality-regression-detected
+          -f "client_payload[environment]=${{ inputs.environment }}"
+          -f "client_payload[agent_name]=${{ inputs.failed_agent }}"
+          -f "client_payload[deployment_run_id]=${{ inputs.deployment_run_id }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: canary-decision-${{ inputs.environment }}-${{ github.run_id }}
+          path: artifacts/

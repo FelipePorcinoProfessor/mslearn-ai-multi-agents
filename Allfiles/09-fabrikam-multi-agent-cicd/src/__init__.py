@@ -1,0 +1,1 @@
+"""Fabrikam multi-agent CI/CD lab starter."""

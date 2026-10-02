@@ -1,0 +1,23 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Lab 06: preflight",
+      "type": "shell",
+      "command": "python scripts/preflight.py",
+      "problemMatcher": []
+    },
+    {
+      "label": "Lab 06: compile Bicep",
+      "type": "shell",
+      "command": "az bicep build --file infra/main.bicep",
+      "problemMatcher": []
+    },
+    {
+      "label": "Lab 06: validate remote authentication",
+      "type": "shell",
+      "command": "python -m src.main discover --server-url $env:MCP_SERVER_URL",
+      "problemMatcher": []
+    }
+  ]
+}

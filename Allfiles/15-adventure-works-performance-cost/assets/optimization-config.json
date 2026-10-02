@@ -1,0 +1,15 @@
+{
+  "agent_version": "aw-cip-v3",
+  "policy_version": "optimization-v1",
+  "price_version": "verified-2026-10-01-global-standard",
+  "cache_ttl_seconds": 3600,
+  "tiers": {
+    "1": {"deployment_env":"TIER1_DEPLOYMENT","input_budget":1200,"quality_floor":75,"prices_usd":{"input_per_million":0.75,"output_per_million":4.5}},
+    "2": {"deployment_env":"TIER2_DEPLOYMENT","input_budget":3000,"quality_floor":85,"prices_usd":{"input_per_million":0.75,"output_per_million":4.5}},
+    "3": {"deployment_env":"TIER3_DEPLOYMENT","input_budget":6000,"quality_floor":90,"prices_usd":{"input_per_million":0.75,"output_per_million":4.5}}
+  },
+  "segment_slos": {
+    "gold": {"quality_min":90,"latency_p95_ms":3000,"cost_max_usd":0.015},
+    "standard": {"quality_min":85,"latency_p95_ms":6000,"cost_max_usd":0.005}
+  }
+}

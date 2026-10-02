@@ -1,0 +1,12 @@
+// Review minimized multi-agent governance decisions without raw source or tenant data.
+AppTraces
+| where TimeGenerated > ago(30d)
+| where Message == "fabrikam.governance.evidence"
+| where Properties.policy_id == "fabrikam-rai-code-review"
+| extend CorrelationId = tostring(Properties.correlation_id)
+| extend PolicyVersion = tostring(Properties.policy_version)
+| extend HumanReview = tobool(Properties.human_review_required)
+| extend FairnessDisparity = todouble(Properties.max_fairness_disparity)
+| extend AgentResponseIds = tostring(Properties.agent_response_ids_json)
+| summarize Reviews=count(), Escalations=countif(HumanReview), MaxDisparity=max(FairnessDisparity), Correlations=dcount(CorrelationId), Responses=make_set(AgentResponseIds) by PolicyVersion
+| order by Escalations desc

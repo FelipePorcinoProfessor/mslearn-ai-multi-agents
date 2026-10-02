@@ -1,0 +1,30 @@
+[
+  {
+    "case": "allowed-orchestrator-to-scanner",
+    "verifiedCaller": {"agentId": "review-orchestrator", "tenantId": "tenant-a"},
+    "targetAgent": "security-scanner",
+    "tenantId": "tenant-a",
+    "payload": {"requestId": "req-001", "tenantId": "tenant-a", "sourceCode": "print('synthetic')", "repositoryRegion": "eastus2", "dataClassification": "confidential", "consentRecorded": true}
+  },
+  {
+    "case": "denied-cross-tenant",
+    "verifiedCaller": {"agentId": "review-orchestrator", "tenantId": "tenant-a"},
+    "targetAgent": "security-scanner",
+    "tenantId": "tenant-b",
+    "payload": {"requestId": "req-002", "tenantId": "tenant-b", "sourceCode": "print('synthetic')", "repositoryRegion": "eastus2", "dataClassification": "confidential", "consentRecorded": true}
+  },
+  {
+    "case": "denied-specialist-lateral-movement",
+    "verifiedCaller": {"agentId": "security-scanner", "tenantId": "tenant-a"},
+    "targetAgent": "compliance-agent",
+    "tenantId": "tenant-a",
+    "payload": {"requestId": "req-003", "tenantId": "tenant-a", "sourceCode": "print('synthetic')", "repositoryRegion": "eastus2", "dataClassification": "confidential", "consentRecorded": true}
+  },
+  {
+    "case": "allowed-minimized-compliance-handoff",
+    "verifiedCaller": {"agentId": "review-orchestrator", "tenantId": "tenant-a"},
+    "targetAgent": "compliance-agent",
+    "tenantId": "tenant-a",
+    "payload": {"requestId": "req-004", "tenantId": "tenant-a", "sourceCode": "print('must not be forwarded')", "repositoryRegion": "eastus2", "dataClassification": "confidential", "consentRecorded": true}
+  }
+]

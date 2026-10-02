@@ -1,0 +1,1 @@
+{"id":"risk-east-v1","name":"contoso-risk-agent","url":"http://127.0.0.1:8000/a2a","version":"1.0.0","capabilities":["risk-analysis"],"load":0.25}

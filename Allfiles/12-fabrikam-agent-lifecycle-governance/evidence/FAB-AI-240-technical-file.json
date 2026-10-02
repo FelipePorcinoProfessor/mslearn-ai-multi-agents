@@ -1,0 +1,9 @@
+{
+  "change_ticket": "FAB-AI-240",
+  "intended_purpose": "Synthetic scanner, reviewer, and orchestrator topology for governed code review",
+  "risk_classification": "limited-risk",
+  "material_change": true,
+  "evaluation_dataset": "security-eval-v3-synthetic",
+  "rollback_version": "2.3.0",
+  "approved": true
+}

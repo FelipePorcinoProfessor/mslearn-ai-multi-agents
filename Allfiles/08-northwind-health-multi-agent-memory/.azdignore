@@ -1,0 +1,10 @@
+.azure/
+.env
+.git/
+.venv/
+.vscode/
+__pycache__/
+assets/
+infra/
+scripts/
+*.pyc

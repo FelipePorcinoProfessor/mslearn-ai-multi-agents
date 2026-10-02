@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  azd: '>=1.27.1'
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.9'
+name: lab08-northwind-memory
+metadata:
+  template: lab08-northwind-memory@0.0.1
+services:
+  ai-project:
+    host: azure.ai.project
+    deployments:
+      - name: gpt-5.4-mini
+        model:
+          format: OpenAI
+          name: gpt-5.4-mini
+          version: '2026-03-17'
+        sku:
+          name: GlobalStandard
+          capacity: 10
+      - name: text-embedding-3-small
+        model:
+          format: OpenAI
+          name: text-embedding-3-small
+          version: '1'
+        sku:
+          name: GlobalStandard
+          capacity: 20
+  memory-coordinator:
+    host: azure.ai.agent
+    project: .
+    language: python
+    codeConfiguration:
+      runtime: python_3_13
+      entryPoint: agent.py
+    uses:
+      - ai-project
+    kind: hosted
+    name: northwind-health-memory-coordinator
+    description: Recalls patient-scoped custom Cosmos memory before producing a grounded response.
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+    env:
+      FOUNDRY_MODEL_NAME: ${FOUNDRY_MODEL_NAME}
+      AZURE_COSMOS_ENDPOINT: ${AZURE_COSMOS_ENDPOINT}
+      AZURE_COSMOS_DATABASE_NAME: ${AZURE_COSMOS_DATABASE_NAME}
+      AZURE_COSMOS_MEMORY_CONTAINER: ${AZURE_COSMOS_MEMORY_CONTAINER}
+      AZURE_COSMOS_AUDIT_CONTAINER: ${AZURE_COSMOS_AUDIT_CONTAINER}
+      AZURE_OPENAI_ENDPOINT: ${AZURE_OPENAI_ENDPOINT}
+      AZURE_OPENAI_EMBEDDING_DEPLOYMENT: ${AZURE_OPENAI_EMBEDDING_DEPLOYMENT}
+      AGENT_PATIENT_ID: synthetic-patient-100
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+infra:
+  provider: bicep
+  path: infra

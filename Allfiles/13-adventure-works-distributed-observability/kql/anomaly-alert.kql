@@ -1,0 +1,13 @@
+let EmptyTraceSource = datatable(TimeGenerated:datetime, Message:string, Properties:dynamic)[datetime(1900-01-01), "", dynamic({})]
+	| where false;
+let TraceSource = union isfuzzy=true AppTraces, EmptyTraceSource;
+let AgentSignals = TraceSource
+	| where TimeGenerated > ago(5m)
+	| where Message == "adventureworks.agent.observation"
+	| where tostring(Properties.anomaly_types) contains "latency" or tobool(Properties.token_anomaly);
+let ChainSignals = TraceSource
+	| where TimeGenerated > ago(5m)
+	| where Message == "adventureworks.chain.summary"
+	| where tobool(Properties.error_rate_anomaly);
+union AgentSignals, ChainSignals
+| project TimeGenerated, Message, Properties

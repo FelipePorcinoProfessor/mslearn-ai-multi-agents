@@ -1,0 +1,98 @@
+[
+  {
+    "id": "formulary-atorvastatin",
+    "title": "Atorvastatin synthetic monograph",
+    "category": "formulary",
+    "source": "synthetic-formulary-v2",
+    "sections": [
+      {
+        "heading": "Contraindications and interactions",
+        "content": "Training-only interaction guidance: concurrent clarithromycin requires pharmacist review before atorvastatin is continued or adjusted. This statement is synthetic and does not replace an approved medication policy."
+      },
+      {
+        "heading": "Monitoring",
+        "content": "Review reported muscle symptoms, the active medication list, and the locally approved monitoring workflow. Escalate unresolved interaction risk to an authorized clinician."
+      }
+    ]
+  },
+  {
+    "id": "formulary-metformin",
+    "title": "Metformin synthetic monograph",
+    "category": "formulary",
+    "source": "synthetic-formulary-v2",
+    "sections": [
+      {
+        "heading": "Renal monitoring",
+        "content": "Training-only monitoring guidance: review renal function according to local policy before treatment decisions. Coordinate laboratory trends with the current medication plan."
+      },
+      {
+        "heading": "Follow-up",
+        "content": "Document adherence questions and route clinically significant changes to an authorized clinician. No patient-specific recommendation is made by this synthetic monograph."
+      }
+    ]
+  },
+  {
+    "id": "guideline-diabetes",
+    "title": "Synthetic diabetes follow-up guideline",
+    "category": "guidelines",
+    "source": "synthetic-guidelines-v2",
+    "sections": [
+      {
+        "heading": "Coordinated review",
+        "content": "Coordinate diabetes treatment decisions with adherence review, laboratory trends, medication tolerance, and shared decision-making. Use the approved clinical workflow for escalation."
+      },
+      {
+        "heading": "Monitoring plan",
+        "content": "Record the responsible follow-up role and the next review point. Reconcile the treatment plan with current formulary guidance and validated laboratory evidence."
+      }
+    ]
+  },
+  {
+    "id": "guideline-lipid",
+    "title": "Synthetic lipid management guideline",
+    "category": "guidelines",
+    "source": "synthetic-guidelines-v2",
+    "sections": [
+      {
+        "heading": "Therapy review",
+        "content": "Review medication tolerance and interaction risk before changing lipid therapy. Confirm exact drug names against the approved formulary source."
+      },
+      {
+        "heading": "Escalation",
+        "content": "Escalate unresolved adverse-effect or interaction concerns through the authorized clinical workflow and retain source citations in the review record."
+      }
+    ]
+  },
+  {
+    "id": "labs-a1c",
+    "title": "Synthetic A1C reference",
+    "category": "labs",
+    "source": "synthetic-lab-reference-v2",
+    "sections": [
+      {
+        "heading": "Interpretation",
+        "content": "Training-only reference: interpret A1C ranges and trends with the approved clinical protocol. This synthetic source intentionally does not assert a patient threshold."
+      },
+      {
+        "heading": "Follow-up",
+        "content": "When the approved protocol identifies a follow-up range, coordinate the laboratory finding with adherence review, treatment context, and an authorized clinician."
+      }
+    ]
+  },
+  {
+    "id": "labs-renal",
+    "title": "Synthetic renal function reference",
+    "category": "labs",
+    "source": "synthetic-lab-reference-v2",
+    "sections": [
+      {
+        "heading": "Monitoring context",
+        "content": "Training-only renal reference: preserve the reported test name, unit, range, and collection context when applying an approved monitoring workflow."
+      },
+      {
+        "heading": "Escalation",
+        "content": "Route clinically significant renal trends to an authorized clinician and reconcile the finding with medications that require renal monitoring."
+      }
+    ]
+  }
+]

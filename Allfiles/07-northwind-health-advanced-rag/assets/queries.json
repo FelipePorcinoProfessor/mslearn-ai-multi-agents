@@ -1,0 +1,5 @@
+[
+  {"query":"atorvastatin contraindications","expected_sources":["formulary"],"expected_parent_ids":["formulary-atorvastatin"]},
+  {"query":"What A1C range requires follow-up?","expected_sources":["labs"],"expected_parent_ids":["labs-a1c"]},
+  {"query":"How should diabetes therapy and monitoring be coordinated?","expected_sources":["formulary","guidelines","labs"],"expected_parent_ids":["formulary-metformin","guideline-diabetes","labs-a1c","labs-renal"]}
+]

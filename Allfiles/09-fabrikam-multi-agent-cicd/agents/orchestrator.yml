@@ -1,0 +1,35 @@
+name: orchestrator
+version: 1.3.0
+depends_on:
+  scanner: ">=1.0.0,<2.0.0"
+  reviewer: ">=1.0.0,<2.0.0"
+model:
+  name: gpt-5.4-mini
+  version: '2026-03-17'
+hosted:
+  kind: hosted
+  protocol: responses
+  protocol_version: 2.0.0
+  runtime: python_3_13
+  entry_point: src/orchestrator_agent.py
+evaluation:
+  dataset: fabrikam-release-smoke
+  dataset_version: '1'
+  evaluator: deterministic-contract-smoke
+  evaluator_version: '1'
+instructions: |
+  Coordinate the security scanner and reviewer results.
+  Resolve disagreements conservatively and return one release recommendation.
+  Always invoke both version-pinned specialist tools before reaching a decision.
+tools:
+  coordinate_review:
+    input:
+      required: [repository, commit]
+      types:
+        repository: string
+        commit: string
+    output:
+      required: [status, agent_results]
+      types:
+        status: string
+        agent_results: object

@@ -1,0 +1,26 @@
+{
+  "agentCallGraph": {
+    "review-orchestrator": ["security-scanner", "compliance-agent"],
+    "security-scanner": [],
+    "compliance-agent": []
+  },
+  "productionNetwork": {
+    "defaultAction": "Deny",
+    "privateEndpointsRequired": true,
+    "mutualTlsBetweenExternalAgents": true,
+    "note": "The classroom project keeps public endpoints enabled for local access. Apply these controls in a VNet-connected production deployment."
+  },
+  "secretsLifecycle": {
+    "preferredAuthentication": "managed_identity",
+    "storage": "key_vault",
+    "maximumRotationDays": 90,
+    "blueGreenRotation": true
+  },
+  "compliance": {
+    "frameworks": ["EU data privacy", "SOC 2", "EU AI Act"],
+    "requiredAuditFields": ["tenantId", "agentId", "action", "decision", "correlationId"],
+    "dataResidencyEnforced": true,
+    "dataMinimizationEnforced": true,
+    "redTeamEvidenceRequiredBeforeProduction": true
+  }
+}

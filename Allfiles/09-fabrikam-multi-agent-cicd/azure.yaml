@@ -1,0 +1,107 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+requiredVersions:
+  azd: '>=1.27.1'
+  extensions:
+    azure.ai.agents: '>=1.0.0-beta.9'
+name: lab09-fabrikam-cicd
+metadata:
+  template: lab09-fabrikam-cicd@0.0.1
+infra:
+  provider: bicep
+  path: infra
+services:
+  ai-project:
+    host: azure.ai.project
+    deployments:
+      - name: gpt-5.4-mini
+        model:
+          format: OpenAI
+          name: gpt-5.4-mini
+          version: '2026-03-17'
+        sku:
+          name: GlobalStandard
+          capacity: 10
+  scanner:
+    project: .
+    host: azure.ai.agent
+    language: python
+    codeConfiguration:
+      runtime: python_3_13
+      entryPoint: src/scanner_agent.py
+    uses:
+      - ai-project
+    kind: hosted
+    name: fabrikam-code-scanner
+    description: Finds security vulnerabilities in a supplied synthetic code-change description.
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+    env:
+      FOUNDRY_MODEL_NAME: ${FOUNDRY_MODEL_NAME}
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+  reviewer:
+    project: .
+    host: azure.ai.agent
+    language: python
+    codeConfiguration:
+      runtime: python_3_13
+      entryPoint: src/reviewer_agent.py
+    uses:
+      - ai-project
+    kind: hosted
+    name: fabrikam-code-reviewer
+    description: Assesses maintainability, correctness, test coverage, and release risk.
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+    env:
+      FOUNDRY_MODEL_NAME: ${FOUNDRY_MODEL_NAME}
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+  orchestrator:
+    project: .
+    host: azure.ai.agent
+    language: python
+    codeConfiguration:
+      runtime: python_3_13
+      entryPoint: src/orchestrator_agent.py
+    uses:
+      - ai-project
+    kind: hosted
+    name: fabrikam-review-orchestrator
+    description: Invokes immutable scanner and reviewer versions and produces one release recommendation.
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+    env:
+      FOUNDRY_MODEL_NAME: ${FOUNDRY_MODEL_NAME}
+      SCANNER_RESPONSES_ENDPOINT: ${AGENT_SCANNER_RESPONSES_ENDPOINT}
+      SCANNER_AGENT_NAME: ${AGENT_SCANNER_NAME}
+      SCANNER_AGENT_VERSION: ${AGENT_SCANNER_VERSION}
+      REVIEWER_RESPONSES_ENDPOINT: ${AGENT_REVIEWER_RESPONSES_ENDPOINT}
+      REVIEWER_AGENT_NAME: ${AGENT_REVIEWER_NAME}
+      REVIEWER_AGENT_VERSION: ${AGENT_REVIEWER_VERSION}
+    container:
+      resources:
+        cpu: '0.5'
+        memory: 1Gi
+  dashboard:
+    project: .
+    host: containerapp
+    language: python
+    resourceName: ${DASHBOARD_APP_NAME}
+    resourceGroup: ${AZURE_RESOURCE_GROUP_NAME}
+    env:
+      RELEASE_SET_ID: ${RELEASE_SET_ID}
+      ORCHESTRATOR_AGENT_NAME: ${AGENT_ORCHESTRATOR_NAME}
+      ORCHESTRATOR_AGENT_VERSION: ${AGENT_ORCHESTRATOR_VERSION}
+      ORCHESTRATOR_RESPONSES_ENDPOINT: ${AGENT_ORCHESTRATOR_RESPONSES_ENDPOINT}
+    docker:
+      path: ./dashboard/Dockerfile
+      context: .

@@ -1,0 +1,5 @@
+{
+  "baseline": {"quality": 0.88, "error_rate": 0.01, "schema_violation_rate": 0.002, "p95_latency_ms": 900},
+  "candidate": {"quality": 0.79, "error_rate": 0.012, "schema_violation_rate": 0.018, "p95_latency_ms": 980},
+  "tolerances": {"quality_drop": 0.05, "error_rate_multiplier": 2.0, "schema_violation_max": 0.01, "latency_multiplier": 1.5}
+}

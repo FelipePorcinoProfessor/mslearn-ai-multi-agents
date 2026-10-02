@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Lab 14: run evaluation",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "src.main",
+      "args": ["--data", "assets/evaluation-data.jsonl", "--output", "reports/evaluation-result.json"],
+      "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/.env"
+    }
+  ]
+}

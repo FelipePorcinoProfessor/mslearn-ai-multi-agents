@@ -1,0 +1,1 @@
+{"jsonrpc":"2.0","id":"request-001","method":"message/send","params":{"tenantId":"contoso","message":{"role":"user","parts":[{"kind":"text","text":"Assess risk in this synthetic portfolio scenario; state assumptions."}]}}}

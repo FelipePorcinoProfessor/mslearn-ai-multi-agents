@@ -1,0 +1,6 @@
+name: adventure-works-human-approval
+metadata:
+  template: adventure-works-human-approval@0.0.1
+infra:
+  provider: bicep
+  path: infra

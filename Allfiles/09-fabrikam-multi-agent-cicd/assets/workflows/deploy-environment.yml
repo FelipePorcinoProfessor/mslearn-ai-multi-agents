@@ -1,0 +1,238 @@
+name: Deploy hosted-agent release set
+on:
+  push:
+    branches: [main]
+    paths:
+      - "agents/**"
+      - "src/**"
+      - "dashboard/**"
+      - "infra/**"
+      - "scripts/**"
+      - "tests/**"
+      - "assets/workflows/**"
+      - "assets/evaluation/**"
+      - "assets/contracts/**"
+      - "assets/quality-metrics-*.json"
+      - "azure.yaml"
+      - "requirements.txt"
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        options: [development, staging, production]
+        required: true
+      source_commit:
+        description: Reviewed commit to promote unchanged
+        type: string
+        required: true
+permissions:
+  contents: write
+  id-token: write
+  actions: read
+concurrency:
+  group: lab09-release-${{ github.event_name == 'push' && 'development' || inputs.environment }}
+  cancel-in-progress: false
+jobs:
+  validate:
+    uses: ./.github/workflows/validate-agents.yml
+    with:
+      source_commit: ${{ github.event_name == 'push' && github.sha || inputs.source_commit }}
+  deploy:
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: ${{ github.event_name == 'push' && 'development' || inputs.environment }}
+    env:
+      TARGET_ENVIRONMENT: ${{ github.event_name == 'push' && 'development' || inputs.environment }}
+      SOURCE_COMMIT: ${{ github.event_name == 'push' && github.sha || inputs.source_commit }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_COMMIT }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: compatibility-report
+          path: artifacts/validation
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - uses: Azure/setup-azd@v2
+      - name: Enforce staging-first production promotion
+        if: env.TARGET_ENVIRONMENT == 'production'
+        run: |
+          mkdir -p artifacts/staging-verified
+          gh release download verified-staging --pattern release-set.json --dir artifacts/staging-verified
+          test "$(jq -r .source.commit artifacts/staging-verified/release-set.json)" = "$SOURCE_COMMIT"
+          test "$(jq -r .status artifacts/staging-verified/release-set.json)" = "verified"
+          test "$(jq -r .reviewed_release_id artifacts/staging-verified/release-set.json)" = "$(jq -r .reviewed_release_id artifacts/validation/release-set.json)"
+      - name: Select isolated azd environment
+        run: |
+          AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd env select "${{ vars.AZURE_ENV_NAME }}" || AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd env new "${{ vars.AZURE_ENV_NAME }}" --no-prompt
+          AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd env set AZURE_LOCATION "${{ vars.AZURE_LOCATION }}"
+          AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd env set AZURE_RESOURCE_GROUP "${{ vars.AZURE_RESOURCE_GROUP_NAME }}"
+          AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd env set GITHUB_PRINCIPAL_ID "${{ vars.GITHUB_PRINCIPAL_ID }}"
+      - name: Provision Foundry project, exact model, and dashboard boundary
+        run: AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd provision --no-prompt
+      - name: Deploy and verify scanner immutable version
+        run: |
+          AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd deploy scanner --no-prompt
+          scanner_version="$(AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd env get-value AGENT_SCANNER_VERSION)"
+          AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd ai agent show scanner --output json | tee artifacts/scanner-show.json
+          AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd ai agent invoke scanner --version "$scanner_version" --protocol responses "Return a one-line readiness response." | tee artifacts/scanner-smoke.txt
+      - name: Deploy and verify reviewer immutable version
+        run: |
+          AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd deploy reviewer --no-prompt
+          reviewer_version="$(AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd env get-value AGENT_REVIEWER_VERSION)"
+          AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd ai agent show reviewer --output json | tee artifacts/reviewer-show.json
+          AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd ai agent invoke reviewer --version "$reviewer_version" --protocol responses "Return a one-line readiness response." | tee artifacts/reviewer-smoke.txt
+      - name: Deploy and verify orchestrator immutable version
+        run: |
+          AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd deploy orchestrator --no-prompt
+          orchestrator_version="$(AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd env get-value AGENT_ORCHESTRATOR_VERSION)"
+          AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd ai agent show orchestrator --output json | tee artifacts/orchestrator-show.json
+          AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd ai agent invoke orchestrator --version "$orchestrator_version" --protocol responses "Review fabrikam/payments-api commit 0123456789abcdef: validate payment amount bounds." | tee artifacts/orchestrator-smoke.txt
+      - name: Capture immutable Foundry release set
+        run: |
+          for key in \
+            AGENT_SCANNER_NAME AGENT_SCANNER_VERSION AGENT_SCANNER_RESPONSES_ENDPOINT \
+            AGENT_REVIEWER_NAME AGENT_REVIEWER_VERSION AGENT_REVIEWER_RESPONSES_ENDPOINT \
+            AGENT_ORCHESTRATOR_NAME AGENT_ORCHESTRATOR_VERSION AGENT_ORCHESTRATOR_RESPONSES_ENDPOINT; do
+            test -n "$(AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd env get-value "$key")"
+          done
+          python scripts/export_release.py \
+            --agents agents \
+            --manifest artifacts/release-set-source.json \
+            --contracts artifacts/current-contracts.json \
+            --source-commit "$SOURCE_COMMIT" \
+            --environment "$TARGET_ENVIRONMENT" \
+            --status validated
+          AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd env get-values --output json > artifacts/azd-values.json
+          python scripts/capture_release_set.py \
+            --manifest artifacts/release-set-source.json \
+            --azd-values artifacts/azd-values.json \
+            --output artifacts/release-set-bound.json
+      - name: Run version-bound smoke evaluation
+        shell: bash
+        run: |
+          : > artifacts/evaluation-results.jsonl
+          orchestrator_version="$(jq -r .agents.orchestrator.hosted_deployment.version artifacts/release-set-bound.json)"
+          while IFS= read -r sample; do
+            id="$(jq -r .id <<<"$sample")"
+            prompt="$(jq -r .input <<<"$sample")"
+            response="$(AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd ai agent invoke orchestrator --version "$orchestrator_version" --protocol responses "$prompt")"
+            jq -cn --arg id "$id" --arg response "$response" '{id:$id,status:"passed",response:$response}' >> artifacts/evaluation-results.jsonl
+          done < assets/evaluation/smoke-v1.jsonl
+          python scripts/evaluation_evidence.py \
+            --manifest artifacts/release-set-bound.json \
+            --dataset assets/evaluation/smoke-v1.jsonl \
+            --results artifacts/evaluation-results.jsonl \
+            --output artifacts/evaluation-evidence.json
+      - name: Resolve stable dashboard evidence
+        id: stable
+        run: |
+          mkdir -p artifacts/previous-verified
+          resource_group="$(AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd env get-value AZURE_RESOURCE_GROUP_NAME)"
+          app="$(AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd env get-value DASHBOARD_APP_NAME)"
+          release_error=artifacts/verified-release-lookup.err
+          if gh api "repos/${{ github.repository }}/releases/tags/verified-$TARGET_ENVIRONMENT" \
+            > artifacts/verified-release-lookup.json 2> "$release_error"; then
+            gh release download "verified-$TARGET_ENVIRONMENT" --pattern release-set.json --dir artifacts/previous-verified
+            python scripts/release_manifest.py \
+              --manifest artifacts/previous-verified/release-set.json \
+              --environment "$TARGET_ENVIRONMENT" \
+              --app-name "$app"
+            echo "revision=$(jq -r .dashboard.revision artifacts/previous-verified/release-set.json)" >> "$GITHUB_OUTPUT"
+            echo "channel=candidate" >> "$GITHUB_OUTPUT"
+            echo "bootstrap=false" >> "$GITHUB_OUTPUT"
+          else
+            if ! grep -q "HTTP 404" "$release_error"; then
+              cat "$release_error" >&2
+              exit 1
+            fi
+            az containerapp revision list --resource-group "$resource_group" --name "$app" --output json > artifacts/bootstrap-revisions.json
+            jq -e 'all(.[]; ([.properties.template.containers[0].env[]? | select(.name == "RELEASE_SET_ID") | .value][0] // "bootstrap") == "bootstrap")' artifacts/bootstrap-revisions.json
+            echo "revision=" >> "$GITHUB_OUTPUT"
+            echo "channel=stable" >> "$GITHUB_OUTPUT"
+            echo "bootstrap=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Deploy thin dashboard revision targeting selected orchestrator
+        run: |
+          release_set_id="$(jq -r .release_set_id artifacts/release-set-bound.json)"
+          AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd env set RELEASE_SET_ID "$release_set_id"
+          AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd deploy dashboard --no-prompt
+      - name: Apply dashboard-only 75/25 exposure
+        id: dashboard
+        shell: bash
+        run: |
+          resource_group="$(AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd env get-value AZURE_RESOURCE_GROUP_NAME)"
+          app="$(AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd env get-value DASHBOARD_APP_NAME)"
+          url="$(AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd env get-value DASHBOARD_ENDPOINT)"
+          revision="$(az containerapp revision list --resource-group "$resource_group" --name "$app" --query "sort_by([?properties.active], &properties.createdTime)[-1].name" --output tsv)"
+          python -m src.main quality --quality assets/quality-metrics-healthy.json --output artifacts/quality-decision.json
+          traffic_args=()
+          if [ -n "${{ steps.stable.outputs.revision }}" ]; then
+            traffic_args+=(--stable-revision "${{ steps.stable.outputs.revision }}")
+          else
+            traffic_args+=(--initial-revision "$revision")
+          fi
+          python scripts/apply_canary_decision.py \
+            --decision artifacts/quality-decision.json \
+            --resource-group "$resource_group" \
+            --app "$app" \
+            --strategy canary \
+            "${traffic_args[@]}" | tee artifacts/traffic-after-deploy.json
+          status=candidate
+          if [ "${{ steps.stable.outputs.bootstrap }}" = "true" ]; then status=verified; fi
+          python scripts/finalize_release_set.py \
+            --manifest artifacts/release-set-bound.json \
+            --output artifacts/release-set.json \
+            --app-name "$app" \
+            --revision "$revision" \
+            --release-channel "${{ steps.stable.outputs.channel }}" \
+            --url "$url" \
+            --routing-evidence artifacts/traffic-after-deploy.json \
+            --status "$status"
+          stable_label_url="$(jq -r .dashboard.stable_label_url artifacts/release-set.json)"
+          candidate_label_url="$(jq -r .dashboard.candidate_label_url artifacts/release-set.json)"
+          curl --fail --retry 12 --retry-delay 10 "$url/metadata" | tee artifacts/dashboard-weighted-route.json
+          if [ -n "${{ steps.stable.outputs.revision }}" ]; then
+            curl --fail --retry 12 --retry-delay 10 "$stable_label_url/metadata" | tee artifacts/dashboard-stable-route.json
+            curl --fail --retry 12 --retry-delay 10 "$candidate_label_url/metadata" | tee artifacts/dashboard-candidate-route.json
+            test "$(jq -r .release_channel artifacts/dashboard-stable-route.json)" = stable
+            test "$(jq -r .release_channel artifacts/dashboard-candidate-route.json)" = candidate
+          else
+            curl --fail --retry 12 --retry-delay 10 "$stable_label_url/metadata" | tee artifacts/dashboard-stable-route.json
+            test "$(jq -r .release_channel artifacts/dashboard-stable-route.json)" = stable
+          fi
+          expected_version="$(jq -r .agents.orchestrator.hosted_deployment.version artifacts/release-set.json)"
+          curl --fail --retry 12 --retry-delay 10 \
+            --data-urlencode repository=fabrikam/payments-api \
+            --data-urlencode commit=0123456789abcdef \
+            --data-urlencode "change_summary=Verify immutable release binding." \
+            "$([ "${{ steps.stable.outputs.bootstrap }}" = "true" ] && echo "$stable_label_url" || echo "$candidate_label_url")/invoke" \
+            | tee artifacts/dashboard-invocation.html
+          grep -q "&quot;served_version&quot;: &quot;$expected_version&quot;" artifacts/dashboard-invocation.html
+      - name: Persist proven first-release baseline
+        if: steps.stable.outputs.bootstrap == 'true'
+        run: |
+          python scripts/release_manifest.py \
+            --manifest artifacts/release-set.json \
+            --environment "$TARGET_ENVIRONMENT"
+          tag="verified-$TARGET_ENVIRONMENT"
+          gh release create "$tag" \
+            --target "$(jq -r .source.commit artifacts/release-set.json)" \
+            --title "Last verified $TARGET_ENVIRONMENT release" \
+            --notes "Automation-owned first verified baseline."
+          gh release upload "$tag" artifacts/release-set.json --clobber
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deployment-evidence-${{ env.TARGET_ENVIRONMENT }}-${{ github.run_id }}
+          path: artifacts/
+          if-no-files-found: error

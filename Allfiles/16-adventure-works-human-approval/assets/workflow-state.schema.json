@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Adventure Works durable approval state",
+  "type": "object",
+  "required": ["id", "workflow_id", "state", "policy_version", "trace_id", "version", "updated_at"],
+  "properties": {
+    "state": {"enum": ["WAITING_FOR_REVIEW", "ESCALATED", "READY_TO_EXECUTE", "EXECUTED", "REJECTED", "CANCELLED"]},
+    "version": {"type": "integer", "minimum": 1},
+    "review_deadline": {"type": "string", "format": "date-time"}
+  }
+}

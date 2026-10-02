@@ -1,0 +1,18 @@
+policy_id: fabrikam-agent-promotion
+version: 1.0.0
+required_manifest_status: approved
+required_approval_status: approved
+require_technical_file: true
+require_evaluation_baseline: true
+retirement:
+  minimum_notice_days: 90
+  require_zero_active_consumers: true
+  require_zero_active_pins: true
+  require_archive_complete: true
+  require_deprecation_recorded: true
+  required_approval_status: approved
+usage_governance:
+  monthly_token_quota: 1000000
+  requests_per_minute: 60
+  price_per_1000_tokens: 0.005
+  currency: USD

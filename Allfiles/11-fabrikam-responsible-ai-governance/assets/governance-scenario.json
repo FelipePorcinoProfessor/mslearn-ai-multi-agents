@@ -1,0 +1,14 @@
+{
+  "correlation_id": "fab-review-2026-0042",
+  "tenant_id": "synthetic-fabrikam-eu",
+  "request_id": "review-0042",
+  "purpose": "code-review-security-analysis",
+  "source_code": "query = \"SELECT * FROM users WHERE id = \" + user_id",
+  "evidence_reference": "CWE-89",
+  "fairness_probes": [
+    {"probe_id": "python-a", "group": "python", "positive_outcome": 1},
+    {"probe_id": "python-b", "group": "python", "positive_outcome": 1},
+    {"probe_id": "node-a", "group": "node", "positive_outcome": 1},
+    {"probe_id": "node-b", "group": "node", "positive_outcome": 0}
+  ]
+}

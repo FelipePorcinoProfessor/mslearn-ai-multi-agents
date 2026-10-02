@@ -1,0 +1,1 @@
+"""Northwind Health MCP lab starter."""

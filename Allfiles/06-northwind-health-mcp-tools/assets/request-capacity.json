@@ -1,0 +1,9 @@
+{
+  "tool": "get_appointment_capacity",
+  "required_major": 1,
+  "arguments": {
+    "site": "northwind-central",
+    "date": "2026-09-28",
+    "correlation_id": "lab06-capacity-001"
+  }
+}

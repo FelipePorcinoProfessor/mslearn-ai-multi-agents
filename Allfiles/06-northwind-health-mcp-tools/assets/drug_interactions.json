@@ -1,0 +1,12 @@
+[
+  {
+    "drugs": ["atorvastatin", "clarithromycin"],
+    "severity": "high",
+    "guidance": "Synthetic record: pause automated workflow and consult a pharmacist."
+  },
+  {
+    "drugs": ["metformin", "lisinopril"],
+    "severity": "none_known_in_dataset",
+    "guidance": "Synthetic record only; absence from this dataset is not clinical clearance."
+  }
+]

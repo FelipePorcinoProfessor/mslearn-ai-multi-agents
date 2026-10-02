@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Lab 15: optimized run",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "src.main",
+      "args": ["--policy", "optimized", "--output", "reports/optimized-summary.json"],
+      "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/.env"
+    }
+  ]
+}

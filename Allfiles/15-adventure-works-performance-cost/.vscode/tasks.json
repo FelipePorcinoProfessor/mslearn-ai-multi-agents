@@ -1,0 +1,7 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {"label":"Lab 15: preflight","type":"shell","command":"python scripts/preflight.py","problemMatcher":[]},
+    {"label":"Lab 15: compile Python","type":"shell","command":"python -m compileall -q src scripts","problemMatcher":[]}
+  ]
+}

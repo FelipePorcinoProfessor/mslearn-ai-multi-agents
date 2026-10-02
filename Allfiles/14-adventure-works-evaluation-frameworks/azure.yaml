@@ -1,0 +1,6 @@
+name: adventure-works-evaluation-frameworks
+metadata:
+  template: adventure-works-evaluation-frameworks@0.0.1
+infra:
+  provider: bicep
+  path: infra

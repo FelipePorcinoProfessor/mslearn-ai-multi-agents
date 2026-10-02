@@ -1,0 +1,11 @@
+{
+  "agent": "return-policy-agent-synthetic",
+  "version": "2026-Q3",
+  "points": [
+    {"raw_confidence": 0.60, "observed_accuracy": 0.55},
+    {"raw_confidence": 0.70, "observed_accuracy": 0.64},
+    {"raw_confidence": 0.80, "observed_accuracy": 0.72},
+    {"raw_confidence": 0.90, "observed_accuracy": 0.78},
+    {"raw_confidence": 1.00, "observed_accuracy": 0.91}
+  ]
+}

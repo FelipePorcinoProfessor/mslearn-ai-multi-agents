@@ -1,0 +1,5 @@
+{
+  "deprecated": true,
+  "replacement": "artifacts-generated-chunks.json",
+  "generation_command": "python -m src.main generate-chunks --source assets/source-documents.json --strategies assets/chunk-strategies.json --output artifacts-generated-chunks.json"
+}

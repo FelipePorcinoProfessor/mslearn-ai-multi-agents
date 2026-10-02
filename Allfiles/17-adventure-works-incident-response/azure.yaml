@@ -1,0 +1,6 @@
+name: adventure-works-incident-response
+metadata:
+  template: adventure-works-incident-response@0.0.1
+infra:
+  provider: bicep
+  path: infra

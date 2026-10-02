@@ -1,0 +1,8 @@
+name: fabrikam-zero-trust-security
+metadata:
+  template: fabrikam-zero-trust-security@1.0.0
+infra:
+  provider: bicep
+  path: infra
+  module: main
+  parameters: main.parameters.json

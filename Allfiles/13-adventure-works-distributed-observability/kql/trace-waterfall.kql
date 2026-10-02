@@ -1,0 +1,12 @@
+// Reconstruct one multi-agent trace from correlated spans and logs.
+let targetTraceId = "<paste-trace-id>";
+union withsource=ItemType AppDependencies, AppTraces
+| where OperationId == targetTraceId or tostring(Properties.trace_id) == targetTraceId
+| extend AgentId = coalesce(tostring(Properties["gen_ai.agent.id"]), tostring(Properties["agent.id"]), tostring(Properties.agent_id))
+| extend AgentName = coalesce(tostring(Properties["gen_ai.agent.name"]), tostring(Properties.agent_id))
+| extend OperationName = coalesce(tostring(Properties["gen_ai.operation.name"]), tostring(Properties["operation.type"]), Name)
+| extend InputTokens = coalesce(toint(Properties["gen_ai.usage.input_tokens"]), toint(Properties.input_token_count))
+| extend OutputTokens = coalesce(toint(Properties["gen_ai.usage.output_tokens"]), toint(Properties.output_token_count))
+| extend ErrorType = tostring(Properties["error.type"])
+| project TimeGenerated, ItemType, Name, OperationName, AgentId, AgentName, InputTokens, OutputTokens, ErrorType, ParentId, Id, DurationMs, Success, Properties
+| order by TimeGenerated asc

@@ -1,0 +1,1 @@
+{"version":"0.2.0","configurations":[{"name":"Lab 16: submit","type":"debugpy","request":"launch","module":"src.main","args":["submit","--input","assets/refund-request.json"],"console":"integratedTerminal","envFile":"${workspaceFolder}/.env"}]}

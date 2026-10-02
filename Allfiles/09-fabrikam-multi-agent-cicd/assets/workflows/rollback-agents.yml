@@ -1,0 +1,82 @@
+name: Restore verified Foundry release set
+on:
+  repository_dispatch:
+    types: [quality-regression-detected]
+permissions:
+  contents: read
+  id-token: write
+  issues: write
+  actions: read
+concurrency:
+  group: lab09-release-${{ github.event.client_payload.environment }}
+  cancel-in-progress: false
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.client_payload.environment }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -r requirements.txt
+      - name: Download candidate and persisted last-verified evidence
+        run: |
+          mkdir -p artifacts/candidate artifacts/verified
+          gh run download "${{ github.event.client_payload.deployment_run_id }}" --name "deployment-evidence-${{ github.event.client_payload.environment }}-${{ github.event.client_payload.deployment_run_id }}" --dir artifacts/candidate
+          gh release download "verified-${{ github.event.client_payload.environment }}" --pattern release-set.json --dir artifacts/verified
+          python scripts/release_manifest.py \
+            --manifest artifacts/verified/release-set.json \
+            --environment "${{ github.event.client_payload.environment }}"
+          test "$(jq -r .environment artifacts/candidate/release-set.json)" = "${{ github.event.client_payload.environment }}"
+      - name: Derive reverse-dependency rollback closure
+        run: >-
+          python -m src.main rollback-set
+          --manifest artifacts/candidate/release-set.json
+          --failed-agent "${{ github.event.client_payload.agent_name }}"
+          --output artifacts/rollback-set.json
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - uses: Azure/setup-azd@v2
+      - name: Select environment
+        run: AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd env select "${{ vars.AZURE_ENV_NAME }}"
+      - name: Restore dashboard revision bound to verified Foundry versions
+        run: |
+          resource_group="$(AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd env get-value AZURE_RESOURCE_GROUP_NAME)"
+          app="$(jq -r .dashboard.app_name artifacts/verified/release-set.json)"
+          python -m scripts.restore_verified_release \
+            --verified-manifest artifacts/verified/release-set.json \
+            --resource-group "$resource_group" \
+            --app "$app" \
+            --environment "${{ github.event.client_payload.environment }}" \
+            --output artifacts/rollback-evidence.json
+      - name: Verify restored dashboard and pinned orchestrator
+        run: |
+          stable_url="$(jq -r .dashboard.stable_label_url artifacts/verified/release-set.json)"
+          orchestrator_version="$(jq -r .agents.orchestrator.hosted_deployment.version artifacts/verified/release-set.json)"
+          release_set_id="$(jq -r .release_set_id artifacts/verified/release-set.json)"
+          curl --fail --retry 12 --retry-delay 10 "$stable_url/metadata" | tee artifacts/restored-dashboard.json
+          test "$(jq -r .release_set_id artifacts/restored-dashboard.json)" = "$release_set_id"
+          test "$(jq -r .orchestrator_version artifacts/restored-dashboard.json)" = "$orchestrator_version"
+          AZURE_DEV_USER_AGENT=microsoft_foundry_skill azd ai agent invoke orchestrator --version "$orchestrator_version" --protocol responses "Return a one-line rollback verification response." | tee artifacts/restored-orchestrator-smoke.txt
+      - name: Create rollback incident
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const evidence = require('./artifacts/rollback-evidence.json');
+            const closure = require('./artifacts/rollback-set.json');
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Automated compatible-set rollback: ${{ github.event.client_payload.agent_name }}`,
+              body: `Environment: ${{ github.event.client_payload.environment }}\nRestored release set: ${evidence.restored_release_set_id}\nReverse-dependency closure: ${closure.agents.join(', ')}`
+            });
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rollback-evidence-${{ github.event.client_payload.environment }}-${{ github.run_id }}
+          path: artifacts/

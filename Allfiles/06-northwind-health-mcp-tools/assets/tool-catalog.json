@@ -1,0 +1,46 @@
+{
+  "catalog_version": "1.0.0",
+  "tools": [
+    {
+      "name": "lookup_drug_interaction",
+      "version": "1.0.0",
+      "lifecycle": "active",
+      "p95_latency_ms": 420,
+      "output_schema": {
+        "type": "object",
+        "required": ["status", "severity", "guidance"],
+        "properties": {
+          "status": {"const": "ok"},
+          "severity": {"type": "string"},
+          "guidance": {"type": "string"}
+        }
+      },
+      "fallback": {
+        "status": "unavailable",
+        "reason": "result_validation_failed",
+        "fallback": "consult_pharmacist"
+      }
+    },
+    {
+      "name": "get_appointment_capacity",
+      "version": "1.1.0",
+      "lifecycle": "active",
+      "p95_latency_ms": 180,
+      "output_schema": {
+        "type": "object",
+        "required": ["status", "site", "date", "available_slots"],
+        "properties": {
+          "status": {"const": "ok"},
+          "site": {"type": "string"},
+          "date": {"type": "string"},
+          "available_slots": {"type": "integer", "minimum": 0}
+        }
+      },
+      "fallback": {
+        "status": "unavailable",
+        "reason": "result_validation_failed",
+        "fallback": "contact_scheduling_desk"
+      }
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Lab 06: MCP server",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "src.server",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Lab 06: discover tools",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "src.main",
+      "args": ["discover", "--server-url", "http://127.0.0.1:8000/mcp"],
+      "console": "integratedTerminal"
+    }
+  ]
+}

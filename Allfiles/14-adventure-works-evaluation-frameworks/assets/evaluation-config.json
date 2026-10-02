@@ -1,0 +1,25 @@
+{
+  "minimum_calibration_agreement": 0.67,
+  "metrics": {
+    "journey_coherence.journey_coherence": {
+      "baseline": 4.4,
+      "minimum": 4.0,
+      "maximum_drop": 0.3
+    },
+    "intent_resolution.intent_resolution": {
+      "baseline": 4.5,
+      "minimum": 4.0,
+      "maximum_drop": 0.3
+    },
+    "task_adherence.task_adherence": {
+      "baseline": 1.0,
+      "minimum": 0.67,
+      "maximum_drop": 0.33
+    },
+    "response_completeness.response_completeness": {
+      "baseline": 4.2,
+      "minimum": 3.8,
+      "maximum_drop": 0.4
+    }
+  }
+}

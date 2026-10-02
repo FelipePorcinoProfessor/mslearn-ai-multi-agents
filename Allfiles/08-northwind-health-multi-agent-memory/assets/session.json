@@ -1,0 +1,6 @@
+{
+  "patientId": "synthetic-patient-100",
+  "sessionContext": "Medication tolerance and appointment preferences",
+  "contextBudgetTokens": 500,
+  "topK": 5
+}

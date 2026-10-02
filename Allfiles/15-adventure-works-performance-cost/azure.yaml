@@ -1,0 +1,6 @@
+name: adventure-works-performance-cost
+metadata:
+  template: adventure-works-performance-cost@0.0.1
+infra:
+  provider: bicep
+  path: infra

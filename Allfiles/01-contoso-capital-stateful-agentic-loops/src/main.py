@@ -1,0 +1,155 @@
+"""Contoso Capital stateful loop starter using Microsoft Foundry Agents v2."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import logging
+import os
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from azure.ai.projects import AIProjectClient
+from azure.ai.projects.models import PromptAgentDefinition
+from azure.identity import DefaultAzureCredential
+from dotenv import load_dotenv
+
+
+LOGGER = logging.getLogger("stateful_loop")
+AGENT_NAME = "contoso-investment-researcher"
+
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+
+
+@dataclass(frozen=True)
+class LoopConfig:
+    project_endpoint: str
+    model_deployment: str
+    max_iterations: int
+
+
+def load_config() -> LoopConfig:
+    """Load non-secret configuration from the environment."""
+    return LoopConfig(
+        project_endpoint=os.environ["FOUNDRY_PROJECT_ENDPOINT"],
+        model_deployment=os.environ["FOUNDRY_MODEL_NAME"],
+        max_iterations=int(os.getenv("MAX_LOOP_ITERATIONS", "3")),
+    )
+
+
+def build_agent_definition(config: LoopConfig) -> PromptAgentDefinition:
+    """Build the versioned v2 agent definition."""
+    # LAB PLACEHOLDER 1: Replace this line with the Task 1 sample.
+    raise NotImplementedError("Complete build_agent_definition in Task 1")
+
+
+def extract_text(response: Any) -> str:
+    """Return visible text from typed Responses API output items."""
+    parts: list[str] = []
+    for item in response.output:
+        if getattr(item, "type", None) != "message":
+            continue
+        for content in getattr(item, "content", []):
+            text = getattr(content, "text", None)
+            if text:
+                parts.append(text)
+    return "\n".join(parts)
+
+
+def run_reflection_cycle(
+    openai_client: Any,
+    conversation_id: str,
+    request: str,
+    max_iterations: int,
+) -> dict[str, Any]:
+    """Run a bounded visible-summary reflection cycle."""
+    # LAB PLACEHOLDER 2: Replace this line with the Task 2 sample.
+    raise NotImplementedError("Complete run_reflection_cycle in Task 2")
+
+
+def fork_with_previous_response(
+    openai_client: Any,
+    previous_response_id: str,
+    branch_request: str,
+) -> Any:
+    """Create a branch with previous_response_id instead of mutating history."""
+    # LAB PLACEHOLDER 3: Replace this line with the Task 3 sample.
+    raise NotImplementedError("Complete fork_with_previous_response in Task 3")
+
+
+def run(input_path: Path, retain_resources: bool = False) -> dict[str, Any]:
+    config = load_config()
+    request_data = json.loads(input_path.read_text(encoding="utf-8"))
+
+    project = AIProjectClient(
+        endpoint=config.project_endpoint,
+        credential=DefaultAzureCredential(),
+    )
+    agent = project.agents.create_version(
+        agent_name=AGENT_NAME,
+        definition=build_agent_definition(config),
+    )
+    openai_client = None
+    conversation = None
+
+    try:
+        openai_client = project.get_openai_client(agent_name=agent.name)
+        conversation = openai_client.conversations.create()
+        loop_result = run_reflection_cycle(
+            openai_client=openai_client,
+            conversation_id=conversation.id,
+            request=request_data["research_request"],
+            max_iterations=config.max_iterations,
+        )
+        branch = fork_with_previous_response(
+            openai_client=openai_client,
+            previous_response_id=loop_result["last_response_id"],
+            branch_request=request_data["branch_request"],
+        )
+
+        return {
+            "agent_name": agent.name,
+            "agent_version": agent.version,
+            "conversation_id": conversation.id,
+            "resources_retained": retain_resources,
+            "iterations": loop_result["iterations"],
+            "branch_response_id": branch.id,
+            "branch_text": extract_text(branch),
+        }
+    finally:
+        if not retain_resources:
+            try:
+                if openai_client is not None and conversation is not None:
+                    openai_client.conversations.delete(conversation_id=conversation.id)
+            finally:
+                project.agents.delete_version(
+                    agent_name=agent.name,
+                    agent_version=agent.version,
+                    force=True,
+                )
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input", type=Path, default=Path("assets/research-request.json"))
+    parser.add_argument("--log-level", default="INFO")
+    parser.add_argument(
+        "--retain-resources",
+        action="store_true",
+        help="Retain the conversation and created agent version for intentional inspection.",
+    )
+    args = parser.parse_args()
+    logging.basicConfig(level=args.log_level, format="%(levelname)s %(message)s")
+    result = run(args.input, retain_resources=args.retain_resources)
+    LOGGER.info(
+        "Loop completed agent=%s version=%s iterations=%d",
+        result["agent_name"],
+        result["agent_version"],
+        len(result["iterations"]),
+    )
+    print(json.dumps(result, indent=2))
+
+
+if __name__ == "__main__":
+    main()

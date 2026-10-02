@@ -1,0 +1,67 @@
+name: Validate hosted-agent release
+on:
+  workflow_call:
+    inputs:
+      source_commit:
+        type: string
+        required: false
+  pull_request:
+    paths:
+      - "agents/**"
+      - "src/**"
+      - "dashboard/**"
+      - "scripts/**"
+      - "tests/**"
+      - "infra/**"
+      - "assets/evaluation/**"
+      - "assets/workflows/**"
+      - "assets/contracts/**"
+      - "assets/quality-metrics-*.json"
+      - "azure.yaml"
+      - "requirements.txt"
+permissions:
+  contents: read
+jobs:
+  compatibility:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_commit || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: python scripts/preflight.py
+      - run: python scripts/validate_workflows.py
+      - run: python -m unittest discover -s Allfiles/09-fabrikam-multi-agent-cicd/tests -v
+      - name: Export source-derived release evidence
+        run: >-
+          python scripts/export_release.py
+          --agents agents
+          --manifest artifacts/release-set.json
+          --contracts artifacts/current-contracts.json
+          --source-commit "${{ inputs.source_commit || github.sha }}"
+          --environment pr-validation
+          --status validated
+      - name: Validate logical versions, graph, contracts, and deterministic fixture
+        run: >-
+          python -m src.main validate
+          --manifest artifacts/release-set.json
+          --baseline assets/contracts/baseline.json
+          --candidate artifacts/current-contracts.json
+          --quality assets/quality-metrics-healthy.json
+          --output artifacts/compatibility-report.json
+      - name: Verify deterministic evaluation dataset
+        run: |
+          test -s assets/evaluation/smoke-v1.jsonl
+          test "$(wc -l < assets/evaluation/smoke-v1.jsonl)" -eq 2
+      - uses: actions/upload-artifact@v4
+        with:
+          name: compatibility-report
+          path: |
+            artifacts/release-set.json
+            artifacts/current-contracts.json
+            artifacts/compatibility-report.json
+          if-no-files-found: error

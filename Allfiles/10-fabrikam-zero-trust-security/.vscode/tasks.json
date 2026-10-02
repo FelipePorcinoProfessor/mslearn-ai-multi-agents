@@ -1,0 +1,17 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Lab 10: preflight",
+      "type": "shell",
+      "command": "python scripts/preflight.py",
+      "problemMatcher": []
+    },
+    {
+      "label": "Lab 10: run zero-trust scenarios",
+      "type": "shell",
+      "command": "python -m src.main",
+      "problemMatcher": []
+    }
+  ]
+}

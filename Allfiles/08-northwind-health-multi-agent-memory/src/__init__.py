@@ -1,0 +1,1 @@
+"""Northwind Health Cosmos DB memory lab starter."""

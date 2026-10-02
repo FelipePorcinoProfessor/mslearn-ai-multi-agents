@@ -1,0 +1,1 @@
+"""Adventure Works durable approval lab."""

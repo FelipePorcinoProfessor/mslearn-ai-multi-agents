@@ -1,0 +1,8 @@
+name: fabrikam-responsible-ai-governance
+metadata:
+  template: fabrikam-responsible-ai-governance@1.0.0
+infra:
+  provider: bicep
+  path: infra
+  module: main
+  parameters: main.parameters.json

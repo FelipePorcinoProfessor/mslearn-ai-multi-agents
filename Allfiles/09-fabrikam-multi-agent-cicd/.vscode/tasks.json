@@ -1,0 +1,106 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Validate debug ports",
+      "type": "aitk",
+      "command": "debug-check-prerequisites",
+      "args": {"portOccupancy": [5679, 8088]}
+    },
+    {
+      "label": "Run scanner hosted agent",
+      "type": "shell",
+      "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe -m debugpy --listen 127.0.0.1:5679 src\\scanner_agent.py",
+      "isBackground": true,
+      "options": {"cwd": "${workspaceFolder}"},
+      "dependsOn": ["Validate debug ports"],
+      "problemMatcher": {
+        "pattern": [{"regexp": "^.*$", "file": 0, "location": 1, "message": 2}],
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*",
+          "endsPattern": "Application startup complete|[Rr]unning on|Started server process"
+        }
+      }
+    },
+    {
+      "label": "Run reviewer hosted agent",
+      "type": "shell",
+      "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe -m debugpy --listen 127.0.0.1:5679 src\\reviewer_agent.py",
+      "isBackground": true,
+      "options": {"cwd": "${workspaceFolder}"},
+      "dependsOn": ["Validate debug ports"],
+      "problemMatcher": {
+        "pattern": [{"regexp": "^.*$", "file": 0, "location": 1, "message": 2}],
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*",
+          "endsPattern": "Application startup complete|[Rr]unning on|Started server process"
+        }
+      }
+    },
+    {
+      "label": "Run orchestrator hosted agent",
+      "type": "shell",
+      "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe -m debugpy --listen 127.0.0.1:5679 src\\orchestrator_agent.py",
+      "isBackground": true,
+      "options": {"cwd": "${workspaceFolder}"},
+      "dependsOn": ["Validate debug ports"],
+      "problemMatcher": {
+        "pattern": [{"regexp": "^.*$", "file": 0, "location": 1, "message": 2}],
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*",
+          "endsPattern": "Application startup complete|[Rr]unning on|Started server process"
+        }
+      }
+    },
+    {
+      "label": "Open scanner Agent Inspector",
+      "type": "shell",
+      "command": "echo '${input:openAgentInspector}'",
+      "presentation": {"reveal": "never"},
+      "dependsOn": ["Run scanner hosted agent"]
+    },
+    {
+      "label": "Open reviewer Agent Inspector",
+      "type": "shell",
+      "command": "echo '${input:openAgentInspector}'",
+      "presentation": {"reveal": "never"},
+      "dependsOn": ["Run reviewer hosted agent"]
+    },
+    {
+      "label": "Open orchestrator Agent Inspector",
+      "type": "shell",
+      "command": "echo '${input:openAgentInspector}'",
+      "presentation": {"reveal": "never"},
+      "dependsOn": ["Run orchestrator hosted agent"]
+    },
+    {
+      "label": "Terminate all debug tasks",
+      "type": "shell",
+      "command": "echo ${input:terminate}",
+      "problemMatcher": []
+    },
+    {
+      "label": "Lab 09: validate",
+      "type": "shell",
+      "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe scripts\\preflight.py; ${workspaceFolder}\\.venv\\Scripts\\python.exe scripts\\validate_workflows.py; ${workspaceFolder}\\.venv\\Scripts\\python.exe -m unittest discover -s tests -v",
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "openAgentInspector",
+      "type": "command",
+      "command": "ai-mlstudio.openTestTool",
+      "args": {"triggeredFrom": "tasks", "port": 8088}
+    },
+    {
+      "id": "terminate",
+      "type": "command",
+      "command": "workbench.action.tasks.terminate",
+      "args": "terminateAll"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Lab 11: run deterministic multi-agent governance",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "src.main",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Lab 11: run live Foundry agents",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "src.main",
+      "args": ["--live"],
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ]
+}

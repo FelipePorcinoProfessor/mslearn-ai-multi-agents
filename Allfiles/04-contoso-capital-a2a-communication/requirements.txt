@@ -1,0 +1,10 @@
+azure-ai-projects>=2.7.0,<3.0.0
+azure-identity>=1.25.3,<2.0.0
+azure-cosmos>=4.16.4,<5.0.0
+fastapi>=0.141.1,<1.0.0
+uvicorn>=0.52.4,<1.0.0
+httpx>=0.28.1,<1.0.0
+openai>=3.19.2,<4.0.0
+python-dotenv>=1.2.3,<2.0.0
+debugpy>=1.8.22,<2.0.0
+agent-dev-cli==0.0.1b260427

@@ -1,0 +1,37 @@
+release_manifest:
+  release_id: 2.4.0
+  created_date: 2026-08-26
+  status: approved
+  configuration:
+    model_deployment: gpt-5.4-mini
+    model_version: '2026-03-17'
+    prompt_sha256: 7e4d942f1a4f312b1aa8d27e7d2ad86069e11c1f3d129e76d8b5b29c7f81b72a
+  topology:
+    agents:
+      - agent_id: scanner
+        version: 1.2.0
+        instructions: Analyze only the supplied synthetic code and return structured security findings.
+      - agent_id: reviewer
+        version: 1.1.0
+        instructions: Review scanner findings for severity, evidence quality, and remediation accuracy.
+      - agent_id: orchestrator
+        version: 1.3.0
+        instructions: Synthesize scanner and reviewer results into one governed release recommendation.
+    compatibility:
+      scanner_output_schema: '2.0'
+      reviewer_requires_scanner_schema: '>=2.0,<3.0'
+      orchestrator_requires_reviewer_version: '>=1.1.0,<2.0.0'
+  evaluation:
+    dataset: security-eval-v3-synthetic
+    precision: 0.96
+    recall: 0.90
+    minimum_precision: 0.95
+    minimum_recall: 0.88
+  approval:
+    status: approved
+    approver_role: responsible-ai-officer
+    change_ticket: FAB-AI-240
+  compliance:
+    eu_ai_act_risk_classification: limited-risk
+    material_change_assessment: true
+    technical_file_reference: evidence/FAB-AI-240-technical-file.json

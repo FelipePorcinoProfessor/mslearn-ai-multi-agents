@@ -1,0 +1,32 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug scanner hosted agent",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": {"host": "localhost", "port": 5679},
+      "preLaunchTask": "Open scanner Agent Inspector",
+      "internalConsoleOptions": "neverOpen",
+      "postDebugTask": "Terminate all debug tasks"
+    },
+    {
+      "name": "Debug reviewer hosted agent",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": {"host": "localhost", "port": 5679},
+      "preLaunchTask": "Open reviewer Agent Inspector",
+      "internalConsoleOptions": "neverOpen",
+      "postDebugTask": "Terminate all debug tasks"
+    },
+    {
+      "name": "Debug orchestrator hosted agent",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": {"host": "localhost", "port": 5679},
+      "preLaunchTask": "Open orchestrator Agent Inspector",
+      "internalConsoleOptions": "neverOpen",
+      "postDebugTask": "Terminate all debug tasks"
+    }
+  ]
+}

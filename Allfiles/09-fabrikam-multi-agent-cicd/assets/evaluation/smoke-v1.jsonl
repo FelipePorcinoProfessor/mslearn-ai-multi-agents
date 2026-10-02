@@ -1,0 +1,2 @@
+{"id":"secure-change","input":"Review repository fabrikam/payments-api at commit 0123456789abcdef. The change validates payment amount bounds before processing.","expected_contract":"coordinate_review"}
+{"id":"risky-change","input":"Review repository fabrikam/payments-api at commit fedcba9876543210. The change logs the full authorization header when a request fails.","expected_contract":"coordinate_review"}

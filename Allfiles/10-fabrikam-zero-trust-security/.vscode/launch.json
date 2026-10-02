@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Lab 10: run zero-trust scenarios",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "src.main",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ]
+}

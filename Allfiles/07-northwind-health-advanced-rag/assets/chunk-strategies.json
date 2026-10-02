@@ -1,0 +1,11 @@
+[
+  {
+    "strategy": "fixed-overlap",
+    "size_chars": 180,
+    "overlap_chars": 40
+  },
+  {
+    "strategy": "structural-parent-child",
+    "include_parent_title": true
+  }
+]

@@ -1,0 +1,1 @@
+{"version":"0.2.0","configurations":[{"name":"Lab 17: find candidates","type":"debugpy","request":"launch","module":"src.main","args":["candidates","--query","kql/01-find-candidates.kql"],"console":"integratedTerminal","envFile":"${workspaceFolder}/.env"}]}

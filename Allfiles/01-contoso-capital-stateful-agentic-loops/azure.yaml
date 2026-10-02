@@ -1,0 +1,8 @@
+name: lab01-stateful-loops
+metadata:
+  template: lab-v3@1.0.0
+infra:
+  provider: bicep
+  path: infra
+  module: main
+  parameters: main.parameters.json

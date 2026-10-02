@@ -1,0 +1,8 @@
+name: adventure-works-distributed-observability
+metadata:
+  template: adventure-works-distributed-observability@1.0.0
+infra:
+  provider: bicep
+  path: infra
+  module: main
+  parameters: main.parameters.json

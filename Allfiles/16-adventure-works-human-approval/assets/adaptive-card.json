@@ -1,0 +1,25 @@
+{
+  "type": "AdaptiveCard",
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "version": "1.5",
+  "body": [
+    {"type":"TextBlock","text":"Adventure Works approval","weight":"Bolder","size":"Medium"},
+    {"type":"FactSet","facts":[
+      {"title":"Tracking","value":"${workflow_id}"},
+      {"title":"Risk","value":"${risk_level}"},
+      {"title":"Impact","value":"${financial_amount}"},
+      {"title":"Recommendation","value":"${recommendation}"}
+    ]},
+    {"type":"Input.ChoiceSet","id":"category","label":"Decision category","choices":[
+      {"title":"Correct recommendation","value":"correct"},
+      {"title":"Wrong policy interpretation","value":"wrong_policy_interpretation"},
+      {"title":"Insufficient context","value":"insufficient_context"}
+    ]},
+    {"type":"Input.Text","id":"comment","label":"Reviewer rationale","isMultiline":true}
+  ],
+  "actions": [
+    {"type":"Action.Submit","title":"Approve","data":{"workflow_id":"${workflow_id}","decision":"APPROVED"}},
+    {"type":"Action.Submit","title":"Reject","data":{"workflow_id":"${workflow_id}","decision":"REJECTED"}},
+    {"type":"Action.Submit","title":"Override","data":{"workflow_id":"${workflow_id}","decision":"OVERRIDDEN"}}
+  ]
+}

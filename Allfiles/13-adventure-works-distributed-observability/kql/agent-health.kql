@@ -1,0 +1,13 @@
+// Aggregate P95 latency and anomaly rate by agent and version.
+AppTraces
+| where TimeGenerated > ago(24h)
+| where Message == "adventureworks.agent.observation"
+| extend AgentId=coalesce(tostring(Properties["gen_ai.agent.id"]), tostring(Properties.agent_id))
+| where AgentId != ""
+| extend AgentName=coalesce(tostring(Properties["gen_ai.agent.name"]), tostring(Properties.agent_id)), AgentVersion=tostring(Properties.agent_version)
+| extend LatencyMs=todouble(Properties.latency_ms), Status=tostring(Properties.status), TokenAnomaly=tobool(Properties.token_anomaly)
+| extend InputTokens=coalesce(toint(Properties["gen_ai.usage.input_tokens"]), toint(Properties.input_token_count))
+| extend OutputTokens=coalesce(toint(Properties["gen_ai.usage.output_tokens"]), toint(Properties.output_token_count))
+| summarize Requests=count(), P95LatencyMs=percentile(LatencyMs, 95), Anomalies=countif(Status != "success"), TokenAnomalies=countif(TokenAnomaly), InputTokens=sum(InputTokens), OutputTokens=sum(OutputTokens) by AgentId, AgentName, AgentVersion
+| extend AnomalyRate=todouble(Anomalies) / Requests
+| order by P95LatencyMs desc

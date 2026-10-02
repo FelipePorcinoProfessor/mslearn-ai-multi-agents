@@ -1,0 +1,12 @@
+let horizon = 24h;
+let checkouts = AppRequests
+| where TimeGenerated > ago(horizon)
+| where Name == "POST /synthetic/checkout"
+| project OperationId, CheckoutSuccess=Success;
+AppDependencies
+| where TimeGenerated > ago(horizon)
+| where Name == "pricing_agent.calculate_total"
+| extend ModelVersion=tostring(Properties["gen_ai.request.model"]), ErrorType=tostring(Properties["incident.error.type"])
+| join kind=inner checkouts on OperationId
+| summarize Samples=count(), AvgPricingDurationMs=avg(DurationMs), PricingFailureRate=countif(Success == false) * 1.0 / count(), ModelVersions=make_set(ModelVersion), ErrorTypes=make_set_if(ErrorType, isnotempty(ErrorType)) by CheckoutSuccess
+| order by CheckoutSuccess desc

@@ -1,0 +1,3 @@
+name: lab04-a2a
+metadata: {template: lab-v3@1.0.0}
+infra: {provider: bicep, path: infra, module: main, parameters: main.parameters.json}

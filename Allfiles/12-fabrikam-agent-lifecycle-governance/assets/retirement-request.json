@@ -1,0 +1,12 @@
+{
+  "agent_id": "scanner",
+  "version": "1",
+  "deprecated_date": "2026-05-01",
+  "deletion_date": "2026-08-01",
+  "replacement_version": "2",
+  "active_consumers": 0,
+  "active_pins": 0,
+  "archive_complete": true,
+  "deprecation_recorded": true,
+  "governance_approval": "approved"
+}

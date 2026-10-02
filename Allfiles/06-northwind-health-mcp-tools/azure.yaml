@@ -1,0 +1,14 @@
+name: lab06-northwind-mcp
+metadata:
+  template: lab06-northwind-mcp@0.0.1
+infra:
+  provider: bicep
+  path: infra
+services:
+  mcp:
+    project: .
+    host: containerapp
+    language: python
+    docker:
+      path: ./Dockerfile
+      context: .

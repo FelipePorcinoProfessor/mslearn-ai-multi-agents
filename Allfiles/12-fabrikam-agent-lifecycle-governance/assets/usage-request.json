@@ -1,0 +1,7 @@
+{
+  "tenant_id": "synthetic-tenant-a",
+  "cost_center": "FAB-SEC-042",
+  "agent_id": "scanner",
+  "agent_version": "1.2.0",
+  "token_count": 1250
+}

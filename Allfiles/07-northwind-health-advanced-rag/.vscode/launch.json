@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Lab 07: hybrid search",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "src.main",
+      "args": ["search", "--query", "atorvastatin contraindications"],
+      "console": "integratedTerminal"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+from azure.ai.agents import AgentsClient
+
+thread = agents_client.threads.create()
+run = agents_client.runs.create(thread_id=thread.id, agent_id=agent.id)
+while run.status in ("queued", "in_progress", "requires_action"):
+    run = agents_client.runs.get(thread_id=thread.id, run_id=run.id)

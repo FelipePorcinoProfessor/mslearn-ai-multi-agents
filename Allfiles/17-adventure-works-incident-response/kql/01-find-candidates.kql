@@ -1,0 +1,7 @@
+let horizon = 24h;
+AppRequests
+| where TimeGenerated > ago(horizon)
+| where Name == "POST /synthetic/checkout"
+| extend CaseId = tostring(Properties["synthetic.case_id"])
+| project TimeGenerated, OperationId, CaseId, Success, DurationMs, ResultCode
+| order by TimeGenerated desc

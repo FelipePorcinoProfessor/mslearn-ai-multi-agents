@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Lab 12: inventory prompt agents",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "src.main",
+      "args": ["inventory"],
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Lab 12: promote governed topology",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "src.main",
+      "args": ["promote"],
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ]
+}

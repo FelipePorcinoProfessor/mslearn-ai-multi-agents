@@ -1,0 +1,41 @@
+policy_id: fabrikam-rai-code-review
+version: 1.0.0
+owner: responsible-ai-office
+review_cadence_days: 30
+thresholds:
+  max_fairness_disparity: 0.10
+evidence:
+  required_fields:
+    - correlation_id
+    - tenant_id_hash
+    - input_sha256
+    - purpose
+    - policy_id
+    - policy_version
+    - fairness
+    - agent_response_ids
+  prohibited_fields:
+    - tenant_id
+    - source_code
+    - raw_prompt
+    - chain_of_thought
+agent_inputs:
+  security-reviewer:
+    - requestId
+    - sourceCode
+    - evidenceReference
+  fairness-auditor:
+    - requestId
+    - groupPositiveRates
+    - maxDisparity
+    - policyThreshold
+  governance-orchestrator:
+    - requestId
+    - policyVersion
+    - fairness
+    - humanReviewRequired
+    - specialistResults
+actions:
+  threshold_exceeded: human_review
+  evidence_incomplete: block
+  evidence_complete: continue
