@@ -6,7 +6,7 @@
       "type": "debugpy",
       "request": "launch",
       "module": "src.main",
-      "args": ["--input", "assets/research-request.json"],
+      "args": ["--input", "assets/research-request.json", "--retain-resources"],
       "envFile": "${workspaceFolder}/.env",
       "console": "integratedTerminal"
     },
@@ -15,7 +15,7 @@
       "type": "debugpy",
       "request": "launch",
       "module": "agentdev",
-      "args": ["run", "--", "python", "-m", "src.main"],
+      "args": ["run", "--", "python", "-m", "src.main", "--retain-resources"],
       "envFile": "${workspaceFolder}/.env",
       "console": "integratedTerminal"
     }

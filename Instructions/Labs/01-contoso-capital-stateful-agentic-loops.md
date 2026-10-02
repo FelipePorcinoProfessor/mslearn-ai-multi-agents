@@ -303,14 +303,14 @@ python scripts/preflight.py
 1. Run the application once and save its console output:
 
 ```powershell
-python -m src.main --input assets/research-request.json 2>&1 | Tee-Object -FilePath artifacts-lab01.txt
+python -m src.main --input assets/research-request.json --retain-resources 2>&1 | Tee-Object -FilePath artifacts-lab01.txt
 ```
 
 The supplied synthetic scenario contains revenue, earnings before interest, taxes, depreciation, and amortization (EBITDA), debt, liquidity, maturity, contracted-revenue, and permitting facts plus explicit evidence gaps. The branch request adds a 250-basis-point refinancing-cost assumption so you can observe whether the alternate path reuses the original evidence without mutating its conversation history.
 
 Authentication messages can show unavailable credential types before `DefaultAzureCredential acquired a token from AzureCliCredential`. That sequence is expected when the application uses your Azure CLI sign-in.
 
-By default, the application deletes the conversation and the exact agent version it created in a `finally` block, including when a response call fails. The output retains their IDs as trace evidence and sets `resources_retained` to `false`. Use `--retain-resources` only when you intentionally need the live conversation and version for portal inspection, and delete that retained version after inspection.
+By default, the application retains the conversation and exact agent version so that you can inspect them in the Foundry portal. The explicit `--retain-resources` option in the command makes that intent visible and sets `resources_retained` to `true`. If you do not need portal inspection, use `--cleanup-resources`; the application then deletes the conversation and exact agent version it created in a `finally` block, including when a response call fails.
 
 ## Task 6: Validate the implementation
 
@@ -328,7 +328,7 @@ Select-String -Path artifacts-lab01.txt -Pattern 'agent_version|conversation_id|
 |---|---|
 | `agent_name` and `agent_version` | Identify the named agent and its immutable Foundry version. |
 | `conversation_id` | Starts with `conv_`; all reflection iterations use this conversation. |
-| `resources_retained` | Is `false` for the standard run. A value of `true` is allowed only for an intentional `--retain-resources` inspection run. |
+| `resources_retained` | Is `true` for the inspection run. |
 | `iterations` | Contains one to three entries, each with a unique `resp_` response ID, a top-level status, and a nonempty summary containing `PLAN:`, `REFLECTION:`, `STATUS:`, and `ANSWER:`. The final status is `COMPLETE`. |
 | `branch_response_id` | Starts with `resp_` and differs from every iteration response ID; the branch is outside the original conversation. |
 | `branch_text` | Addresses the 250-basis-point refinancing assumption without inventing missing debt or cash-flow data. |
@@ -337,11 +337,11 @@ Select-String -Path artifacts-lab01.txt -Pattern 'agent_version|conversation_id|
 
 **Validate agent-version lifecycle in Foundry**
 
-3. For the standard run, open the [Foundry portal](https://ai.azure.com) and select the project identified by `FOUNDRY_PROJECT_ENDPOINT` in `.env`.
+3. Open the [Foundry portal](https://ai.azure.com) and select the project identified by `FOUNDRY_PROJECT_ENDPOINT` in `.env`.
 4. Select **Agents** > **contoso-investment-researcher** and open its version history.
-5. Confirm that the recorded `agent_version` is no longer present because the standard run deleted the exact version it created.
+5. Confirm that the recorded `agent_version` is present and inspect its definition.
 
-If you need to inspect a live version, rerun once with `--retain-resources`, confirm the recorded version exists, and then delete that retained version after inspection. Version numbers can be greater than `1` after repeated runs.
+After inspection, delete the retained conversation and agent version in the Foundry portal. For future runs that do not require inspection, pass `--cleanup-resources`. That option cleans up only the resources created by that run; it does not delete versions retained by earlier runs. Version numbers can be greater than `1` after repeated runs.
 
 **Validate the response traces**
 

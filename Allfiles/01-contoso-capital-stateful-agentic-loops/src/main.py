@@ -78,7 +78,7 @@ def fork_with_previous_response(
     raise NotImplementedError("Complete fork_with_previous_response in Task 3")
 
 
-def run(input_path: Path, retain_resources: bool = False) -> dict[str, Any]:
+def run(input_path: Path, retain_resources: bool = True) -> dict[str, Any]:
     config = load_config()
     request_data = json.loads(input_path.read_text(encoding="utf-8"))
 
@@ -119,6 +119,12 @@ def run(input_path: Path, retain_resources: bool = False) -> dict[str, Any]:
         }
     finally:
         if not retain_resources:
+            LOGGER.info(
+                "Deleting conversation=%s and agent=%s version=%s",
+                getattr(conversation, "id", None),
+                agent.name,
+                agent.version,
+            )
             try:
                 if openai_client is not None and conversation is not None:
                     openai_client.conversations.delete(conversation_id=conversation.id)
@@ -128,17 +134,33 @@ def run(input_path: Path, retain_resources: bool = False) -> dict[str, Any]:
                     agent_version=agent.version,
                     force=True,
                 )
+        else:
+            LOGGER.info(
+                "Retained conversation=%s and agent=%s version=%s for inspection",
+                getattr(conversation, "id", None),
+                agent.name,
+                agent.version,
+            )
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", type=Path, default=Path("assets/research-request.json"))
     parser.add_argument("--log-level", default="INFO")
-    parser.add_argument(
+    resource_group = parser.add_mutually_exclusive_group()
+    resource_group.add_argument(
         "--retain-resources",
+        dest="retain_resources",
         action="store_true",
-        help="Retain the conversation and created agent version for intentional inspection.",
+        help="Retain the conversation and created agent version (default).",
     )
+    resource_group.add_argument(
+        "--cleanup-resources",
+        dest="retain_resources",
+        action="store_false",
+        help="Delete the conversation and exact agent version created by this run.",
+    )
+    parser.set_defaults(retain_resources=True)
     args = parser.parse_args()
     logging.basicConfig(level=args.log_level, format="%(levelname)s %(message)s")
     result = run(args.input, retain_resources=args.retain_resources)
