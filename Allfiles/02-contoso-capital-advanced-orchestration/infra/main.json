@@ -1,0 +1,172 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.47.16.16243",
+      "templateHash": "8566943002394385540"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]"
+    },
+    "environmentName": {
+      "type": "string"
+    },
+    "modelDeploymentName": {
+      "type": "string"
+    },
+    "modelName": {
+      "type": "string",
+      "defaultValue": "[parameters('modelDeploymentName')]"
+    },
+    "modelVersion": {
+      "type": "string"
+    },
+    "enableSandboxPublicNetworkAccess": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Sandbox only. Enables public access for standalone lab use. Setting false does not create private endpoints or private DNS."
+      }
+    }
+  },
+  "variables": {
+    "suffix": "[uniqueString(subscription().id, resourceGroup().id, parameters('environmentName'))]",
+    "accountName": "[format('fdry{0}', take(variables('suffix'), 18))]",
+    "projectName": "[format('lab02-{0}', take(parameters('environmentName'), 12))]",
+    "workspaceName": "[format('log-lab02-{0}', take(variables('suffix'), 18))]",
+    "insightsName": "[format('appi-lab02-{0}', take(variables('suffix'), 18))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.CognitiveServices/accounts",
+      "apiVersion": "2025-06-01",
+      "name": "[variables('accountName')]",
+      "location": "[parameters('location')]",
+      "kind": "AIServices",
+      "sku": {
+        "name": "S0"
+      },
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "allowProjectManagement": true,
+        "customSubDomainName": "[variables('accountName')]",
+        "publicNetworkAccess": "[if(parameters('enableSandboxPublicNetworkAccess'), 'Enabled', 'Disabled')]",
+        "networkAcls": {
+          "defaultAction": "[if(parameters('enableSandboxPublicNetworkAccess'), 'Allow', 'Deny')]"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts/projects",
+      "apiVersion": "2025-06-01",
+      "name": "[format('{0}/{1}', variables('accountName'), variables('projectName'))]",
+      "location": "[parameters('location')]",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "displayName": "[variables('projectName')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts', variables('accountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2023-09-01",
+      "name": "[variables('workspaceName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "retentionInDays": 30,
+        "sku": {
+          "name": "PerGB2018"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Insights/components",
+      "apiVersion": "2020-02-02",
+      "name": "[variables('insightsName')]",
+      "location": "[parameters('location')]",
+      "kind": "web",
+      "properties": {
+        "Application_Type": "web",
+        "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts/projects/connections",
+      "apiVersion": "2025-06-01",
+      "name": "[format('{0}/{1}/{2}', variables('accountName'), variables('projectName'), variables('insightsName'))]",
+      "properties": {
+        "category": "AppInsights",
+        "target": "[resourceId('Microsoft.Insights/components', variables('insightsName'))]",
+        "authType": "ApiKey",
+        "credentials": {
+          "key": "[reference(resourceId('Microsoft.Insights/components', variables('insightsName')), '2020-02-02').ConnectionString]"
+        },
+        "metadata": {
+          "ApiType": "Azure",
+          "ResourceId": "[resourceId('Microsoft.Insights/components', variables('insightsName'))]",
+          "location": "[parameters('location')]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/components', variables('insightsName'))]",
+        "[resourceId('Microsoft.CognitiveServices/accounts/projects', variables('accountName'), variables('projectName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.CognitiveServices/accounts/deployments",
+      "apiVersion": "2025-06-01",
+      "name": "[format('{0}/{1}', variables('accountName'), parameters('modelDeploymentName'))]",
+      "sku": {
+        "name": "GlobalStandard",
+        "capacity": 10
+      },
+      "properties": {
+        "model": {
+          "format": "OpenAI",
+          "name": "[parameters('modelName')]",
+          "version": "[parameters('modelVersion')]"
+        },
+        "versionUpgradeOption": "OnceNewDefaultVersionAvailable"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.CognitiveServices/accounts', variables('accountName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "FOUNDRY_PROJECT_ENDPOINT": {
+      "type": "string",
+      "value": "[format('https://{0}.services.ai.azure.com/api/projects/{1}', variables('accountName'), variables('projectName'))]"
+    },
+    "FOUNDRY_PROJECT_ID": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.CognitiveServices/accounts/projects', variables('accountName'), variables('projectName'))]"
+    },
+    "FOUNDRY_MODEL_NAME": {
+      "type": "string",
+      "value": "[parameters('modelDeploymentName')]"
+    },
+    "APPLICATIONINSIGHTS_RESOURCE_ID": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Insights/components', variables('insightsName'))]"
+    },
+    "LOG_ANALYTICS_WORKSPACE_ID": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName')), '2023-09-01').customerId]"
+    }
+  }
+}
