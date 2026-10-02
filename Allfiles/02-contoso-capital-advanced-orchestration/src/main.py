@@ -15,45 +15,12 @@ load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 def select_execution_pattern(tasks: list[dict[str, Any]]) -> str:
     """Learner task: return parallel only when this batch has no dependencies."""
     # LAB PLACEHOLDER 1: Replace this line with the Task 1 sample.
-    task_names = {task["name"] for task in tasks}
-    has_in_round_dependency = any(
-      task_names.intersection(task.get("depends_on", []))
-      for task in tasks
-    )
-    return "sequential" if has_in_round_dependency else "parallel"
+    raise NotImplementedError("Complete select_execution_pattern in Task 1")
 
 def evaluate_quorum(results: list[dict[str, Any]], required: list[str]) -> dict[str, Any]:
     """Learner task: enforce critical-agent quorum and normalize evidence."""
     # LAB PLACEHOLDER 2: Replace this line with the Task 2 sample.
-    successful = {
-      result["agent"]: result
-      for result in results
-      if isinstance(result, dict) and result.get("status") == "success"
-    }
-    all_agents = [
-      result.get("agent", "unknown")
-      for result in results
-      if isinstance(result, dict)
-    ]
-    missing_agents = [name for name in all_agents if name not in successful]
-    missing_required = [name for name in required if name not in successful]
-    accepted_evidence = [
-      {
-        "agent": name,
-        "response_id": result["response_id"],
-        "text": result["text"],
-        "elapsed_ms": result["elapsed_ms"],
-      }
-      for name, result in successful.items()
-    ]
-    return {
-      "status": "ready" if not missing_required else "insufficient_quorum",
-      "required_agents": required,
-      "successful_count": len(successful),
-      "missing_agents": missing_agents,
-      "missing_required": missing_required,
-      "accepted_evidence": accepted_evidence,
-    }
+    raise NotImplementedError("Complete evaluate_quorum in Task 2")
 
 def text_from_response(response: Any) -> str:
     return "\n".join(getattr(part, "text", "") for item in response.output if getattr(item, "type", None) == "message" for part in getattr(item, "content", [])).strip()
@@ -77,23 +44,7 @@ async def invoke(openai: Any, agent_name: str, prompt: str, timeout: float, sema
 def synthesize(openai: Any, request: str, quorum: dict[str, Any]) -> Any:
     """Learner task: invoke the supervisor with accepted evidence and caveats."""
     # LAB PLACEHOLDER 3: Replace this line with the Task 3 sample.
-    if quorum["status"] != "ready":
-      missing = ", ".join(quorum["missing_required"])
-      raise RuntimeError(f"Critical quorum was not met: {missing}")
-
-    payload = {
-      "request": request,
-      "accepted_evidence": quorum["accepted_evidence"],
-      "missing_agents": quorum["missing_agents"],
-    }
-    return openai.responses.create(
-      input=(
-        "Synthesize the supplied specialist evidence. State a caveat for "
-        "every missing agent, do not invent facts, and do not provide "
-        "investment advice.\n"
-        + json.dumps(payload)
-      ),
-    )
+    raise NotImplementedError("Complete synthesize in Task 3")
 
 async def run(path: Path) -> dict[str, Any]:
     data = json.loads(path.read_text(encoding="utf-8"))
