@@ -301,23 +301,70 @@ Local schema checks do not substitute for live response evidence.
 5. Find the project name in the final segment of `FOUNDRY_PROJECT_ENDPOINT` in `.env`. Open the [Microsoft Foundry portal](https://ai.azure.com), enable **New Foundry**, and select that project.
 6. Select **Build** > **Agents**. Confirm that `market-spoke`, `risk-spoke`, `compliance-spoke`, and `research-supervisor` exist as prompt agents.
 7. Open each agent's newest version and confirm its model matches `FOUNDRY_MODEL_NAME` and its instructions match `assets/portfolio-request.json`. Each application run creates new versions.
-8. In each spoke's **Playground**, submit this prompt, replacing `<assignment>` with its assignment from the scenario file:
+8. Open each spoke's newest version in the **Playground** and submit the prompt shown for that agent:
+
+**`market-spoke`**
 
   ```text
   Request: Assess a synthetic balanced portfolio under a fictional rate shock.
-  Assignment: <assignment>
+  Assignment: Return market assumptions and evidence gaps.
   ```
 
-9. Verify the role boundaries: market identifies assumptions and evidence gaps, risk identifies drivers and limits without investment advice, and compliance identifies policy caveats.
-10. In the supervisor's **Playground**, supply the original request, one synthetic market result, one synthetic risk result, and `"missing_agents": ["compliance-spoke"]`. Ask it to synthesize only that evidence. Confirm a bounded brief with an explicit missing-compliance caveat and no invented compliance findings.
+**`risk-spoke`**
+
+  ```text
+  Request: Assess a synthetic balanced portfolio under a fictional rate shock.
+  Assignment: Return risk drivers and limits.
+  ```
+
+**`compliance-spoke`**
+
+  ```text
+  Request: Assess a synthetic balanced portfolio under a fictional rate shock.
+  Assignment: Return compliance caveats.
+  ```
+
+9. Verify the role boundaries:
+   - `market-spoke` identifies assumptions and missing market evidence.
+   - `risk-spoke` identifies risk drivers and analysis limits without providing investment advice.
+   - `compliance-spoke` identifies policy caveats without performing the market or risk analysis.
+10. Open `research-supervisor` in the **Playground** and submit this complete synthetic fan-in payload:
+
+  ```json
+  {
+    "request": "Assess a synthetic balanced portfolio under a fictional rate shock.",
+    "accepted_evidence": [
+      {
+        "agent": "market-spoke",
+        "response_id": "playground-market-001",
+        "text": "Assumption: the fictional scenario includes a rate increase. Evidence gaps: no holdings, duration, rate-shock magnitude, or market data were supplied.",
+        "elapsed_ms": 0
+      },
+      {
+        "agent": "risk-spoke",
+        "response_id": "playground-risk-001",
+        "text": "Potential drivers include duration and concentration, but exposure cannot be quantified without portfolio data. This is risk analysis, not investment advice.",
+        "elapsed_ms": 0
+      }
+    ],
+    "missing_agents": [
+      "compliance-spoke"
+    ]
+  }
+  ```
+
+11. Confirm that the supervisor:
+    - Uses only the two supplied evidence records.
+    - Explicitly states that compliance evidence is missing.
+    - Does not invent a compliance conclusion, portfolio holdings, exposure values, or a rate-shock magnitude.
 
 Playground calls test agents independently. They do not reproduce parallel orchestration or prove which agents a saved console run invoked.
 
 **Correlate service traces with application evidence**
 
-11. Select **Agents** > **Traces**, set the time range to cover the normal run, and search for its saved response IDs. Allow several minutes for ingestion.
-12. Compare the three spoke traces: overlapping start times and durations demonstrate concurrent calls. Confirm that the supervisor trace starts after the spoke responses complete.
-13. Repeat for the optional-failure run. A compliance trace can still exist because fault injection occurs after the live call. Use the final JSON to verify exclusion from accepted evidence, the quorum decision, and the supervisor's caveat.
+12. Select **Agents** > **Traces**, set the time range to cover the normal run, and search for its saved response IDs. Allow several minutes for ingestion.
+13. Compare the three spoke traces: overlapping start times and durations demonstrate concurrent calls. Confirm that the supervisor trace starts after the spoke responses complete.
+14. Repeat for the optional-failure run. A compliance trace can still exist because fault injection occurs after the live call. Use the final JSON to verify exclusion from accepted evidence, the quorum decision, and the supervisor's caveat.
 
 Service traces show Foundry calls and timing, not the Python semaphore, `asyncio.gather`, fault injection, or quorum code. Correlate them with the saved JSON; do not expect one end-to-end parent span. Client-side instrumentation, KQL, sampling, and alerts are covered in Lab 13.
 
