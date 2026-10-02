@@ -338,7 +338,12 @@ python -m src.main --input assets/research-query.json
 ```
 
 2. Run the complex query.
-3. Then change `complexity_hint` to `simple`.
+3. Then change `complexity_hint` to `simple` by editing the assets/research-query.json file.
+4. Save the changes.
+5. Run the previous Powershell cmdlet again:
+```powershell
+python -m src.main --input assets/research-query.json
+```
 
 The live planner should reduce task depth while preserving the final synthesis task.
 
