@@ -1,68 +1,69 @@
 ---
 lab:
-  title: 'Implement CI/CD for Foundry hosted agents'
-  description: 'Release immutable Microsoft Foundry hosted-agent versions with GitHub Actions, then use a thin Container Apps dashboard to demonstrate progressive delivery and compatible-set rollback.'
+  title: 'Implementar CI/CD para hosted agents do Microsoft Foundry'
+  description: 'Liberar versões imutáveis de hosted-agents do Microsoft Foundry com GitHub Actions e, em seguida, usar um dashboard leve em Container Apps para demonstrar progressive delivery e rollback por conjunto compatível.'
   duration: 45
   level: 400
   islab: true
   status: 'released'
+layout: default
 ---
 
-# Implement CI/CD for Foundry hosted agents
+# Implementar CI/CD para hosted agents do Foundry
 
-## Customer scenario
+## Cenário do cliente
 
-Fabrikam uses three AI agents to review code changes:
+Fabrikam usa três agentes de IA para revisar alterações de código:
 
-- The **scanner** identifies security vulnerabilities.
-- The **reviewer** assesses maintainability and release risk.
-- The **orchestrator** invokes both specialists and produces one release recommendation.
+- O **scanner** identifica vulnerabilidades de segurança.
+- O **reviewer** avalia a manutenibilidade e o risco de release.
+- O **orchestrator** invoca ambos os especialistas e produz uma única recomendação de release.
 
-Scanner, reviewer, and orchestrator are Microsoft Foundry hosted agents v2. Each successful `azd deploy` creates a new immutable Foundry agent version. Calls use the hosted-agent Responses endpoint only after creating a session with a concrete `version_ref`, so the session is bound to the recorded immutable version. They aren't Azure Container Apps.
+Scanner, reviewer e orchestrator são hosted agents v2 do Microsoft Foundry. Cada `azd deploy` bem-sucedido cria uma nova versão imutável do agente Foundry. As chamadas usam o endpoint Responses do hosted-agent apenas depois de criar uma session com um `version_ref` concreto, de modo que a sessão fica vinculada à versão imutável gravada. Eles não são Container Apps.
 
-Fabrikam also operates one deliberately thin traditional web application: a Container Apps release dashboard and gateway. Each dashboard revision targets one exact orchestrator version and displays:
+A Fabrikam também opera um aplicativo web tradicional deliberadamente fino: um dashboard e gateway em Container Apps. Cada revisão do dashboard aponta para uma versão exata do orchestrator e exibe:
 
-- Its Container App revision and release channel.
-- The selected Foundry release-set ID.
-- The immutable orchestrator agent name, Foundry version, and Responses endpoint.
+- Sua revisão do Container App e canal de release.
+- O ID do release-set selecionado.
+- O nome do agente orchestrator imutável, a versão Foundry e o endpoint Responses.
 
-The dashboard is the progressive-delivery boundary. During a canary, Container Apps sends 75 percent of requests to the stable dashboard revision and 25 percent to the candidate dashboard revision. The agents don't claim native weighted Foundry routing.
+O dashboard é a fronteira de progressive delivery. Durante um canário, Container Apps envia 75% das requisições para a revisão estável do dashboard e 25% para a revisão candidata do dashboard. Os agentes não alegam roteamento ponderado nativo do Foundry.
 
-## Lab scenario
+## Cenário do laboratório
 
-Prepare passwordless GitHub access to Azure, activate the supplied workflows, and deploy the initial release to a development environment. Then change the scanner's logical version, review credential-free pull-request evidence, and deploy a candidate release set.
+Prepare acesso GitHub sem senha ao Azure, ative os workflows fornecidos e faça o deploy do release inicial para um ambiente de desenvolvimento. Em seguida, altere a versão lógica do scanner, revise evidências de pull request sem credenciais e implante um release set candidato.
 
-Use the dashboard's weighted URL to observe 75/25 routing. Use the stable and candidate label URLs for deterministic verification. Promote healthy dashboard traffic to 0/100, then exercise a regression profile. Rollback must use a persisted last-verified release manifest, restore the dashboard revision that targets that compatible Foundry release set, and verify the exact restored orchestrator version both through the dashboard and by version-pinned invocation.
+Use a URL ponderada do dashboard para observar roteamento 75/25. Use as URLs com rótulos stable e candidate para verificação determinística. Promova o tráfego saudável do dashboard para 0/100 e então exerça um perfil de regressão. O rollback deve usar um manifesto de release verificado e persistido, restaurar a revisão do dashboard que aponta para esse release set compatível e verificar a versão exata restaurada do orchestrator tanto através do dashboard quanto por invocação com versionamento fixo.
 
-<!-- LAB DIAGRAM PLACEHOLDER: Show scanner and reviewer deployment before the orchestrator, the version-bound dashboard revision, canary traffic, promotion, and rollback to a verified release set. -->
+<!-- ESPAÇO PARA DIAGRAMA DO LAB: Mostrar deployment do scanner e reviewer antes do orchestrator, a revisão do dashboard vinculada à versão, tráfego canário, promoção e rollback para um release set verificado. -->
 
-By the end of this exercise, you'll be able to:
+Ao final deste exercício, você saberá:
 
-- Validate strict logical semantic versions, tool contracts, a dependency DAG, model policy, and hosted-agent v2 manifests without Azure credentials.
-- Deploy Foundry hosted agents serially in shared azd state and capture immutable names, versions, and Responses endpoints.
-- Bind deterministic smoke evaluation evidence to a source commit and Foundry release set.
-- Use GitHub environments, OIDC, Bicep, and separate Foundry projects for development, staging, and production.
-- Apply canary and blue-green traffic to a traditional Container Apps boundary without misrepresenting Foundry routing.
-- Restore a compatible release set from persisted evidence and retain reverse-dependency rollback closure.
+- Validar versões semânticas lógicas estritas, contratos de ferramenta, um DAG de dependência, política de modelo e manifests de hosted-agent v2 sem credenciais Azure.
+- Implantar hosted agents do Foundry de forma serial em estado compartilhado azd e capturar nomes imutáveis, versões e endpoints Responses.
+- Vincular evidência determinística de avaliação a um commit de origem e ao release set do Foundry.
+- Usar GitHub environments, OIDC, Bicep e projetos Foundry separados para development, staging e production.
+- Aplicar tráfego canary e blue-green em uma fronteira tradicional Container Apps sem representar incorretamente o roteamento do Foundry.
+- Restaurar um release set compatível a partir de evidências persistidas e manter o fechamento de rollback por dependências reversas.
 
 > [!IMPORTANT]
-> This lab creates billable Azure Container Registry, Log Analytics, Container Apps, and Microsoft Foundry resources, including a `gpt-5.4-mini` model deployment pinned to version `2026-03-17`. Use an isolated training subscription and remove the resource groups when you finish. Model availability and quota vary by region.
+> Este laboratório cria recursos faturáveis em Azure Container Registry, Log Analytics, Container Apps e Microsoft Foundry, incluindo um deployment de modelo `gpt-5.4-mini` fixado na versão `2026-03-17`. Use uma assinatura de treinamento isolada e remova os grupos de recurso quando terminar. A disponibilidade e cota de modelos variam por região.
 
-## Understand the three version identities
+## Entenda as três identidades de versão
 
-The lab intentionally keeps three version systems separate.
+O laboratório mantém intencionalmente três sistemas de versão separados.
 
-| Identity | Example | Purpose |
+| Identidade | Exemplo | Propósito |
 |---|---|---|
-| Logical semantic version | `scanner 1.2.0` | Source compatibility and dependency ranges |
-| Immutable Foundry agent version | `fabrikam-code-scanner`, version `7` | Deployed executable agent, version endpoint, and version-bound session |
-| Dashboard Container App revision | `fabrikam-release-dev--abc123` | Traditional-app release channel and 75/25 or 0/100 traffic |
+| Versão semântica lógica | `scanner 1.2.0` | Compatibilidade de origem e intervalos de dependência |
+| Versão imutável do agente Foundry | `fabrikam-code-scanner`, versão `7` | Agente executável implantado, endpoint de versão e session vinculada à versão |
+| Revisão do Container App do dashboard | `fabrikam-release-dev--abc123` | Canal de release do aplicativo tradicional e tráfego 75/25 ou 0/100 |
 
-A logical version isn't a Foundry version. A Foundry version isn't a Container App revision. The release-set manifest records all three and prevents the pipeline from treating them as interchangeable.
+Uma versão lógica não é uma versão do Foundry. Uma versão do Foundry não é uma revisão do Container App. O manifesto do release-set registra as três e impede que o pipeline as trate como intercambiáveis.
 
-## Understand the release architecture
+## Entenda a arquitetura de release
 
-The deployment graph is:
+O grafo de deployment é:
 
 ```text
 scanner  --------+
@@ -73,32 +74,32 @@ reviewer --------+                           ^
                                    (stable or candidate)
 ```
 
-The source has four parts:
+A origem tem quatro partes:
 
-- `azure.yaml` and `src/*_agent.py` define the three hosted agents; `dashboard/app.py` is the only Container Apps service.
-- `agents/*.yml` defines logical versions, dependencies, model policy, evaluation identity, instructions, and tool contracts.
-- `scripts/` captures immutable deployment outputs into a release set, while `assets/evaluation/` and the quality profiles provide validation evidence.
-- `infra/` and `assets/workflows/` create the Azure boundary and provide the inactive workflow templates that you activate during the lab.
+- `azure.yaml` e `src/*_agent.py` definem os três hosted agents; `dashboard/app.py` é o único serviço Container Apps.
+- `agents/*.yml` define versões lógicas, dependências, política de modelo, identidade de avaliação, instruções e contratos de ferramenta.
+- `scripts/` captura saídas de deployment imutáveis em um release set, enquanto `assets/evaluation/` e os perfis de qualidade fornecem evidência de validação.
+- `infra/` e `assets/workflows/` criam a fronteira Azure e fornecem os templates de workflow inativos que você ativa durante o laboratório.
 
-The captured release set binds the reviewed source and policy metadata to each immutable Foundry agent version and the dashboard revision that invokes the orchestrator.
+O release set capturado vincula a origem revisada e os metadados de política a cada versão imutável do agente Foundry e à revisão do dashboard que invoca o orchestrator.
 
-## Task 1: Prepare the lab
+## Tarefa 1: Preparar o laboratório
 
-You need:
+Você precisará de:
 
-- An Azure subscription in which an administrator can grant the required roles.
-- A GitHub account that can create a private repository, workflows, environments, variables, protection rules, releases, and issues.
-- [Python 3.13](https://www.python.org/downloads/), [Git](https://git-scm.com/downloads), [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), and [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd).
-- Visual Studio Code with the Python, GitHub Actions, and Bicep extensions.
+- Uma assinatura Azure na qual um administrador possa conceder as funções necessárias.
+- Uma conta GitHub que possa criar um repositório privado, workflows, environments, variables, regras de proteção, releases e issues.
+- [Python 3.13](https://www.python.org/downloads/), [Git](https://git-scm.com/downloads), [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) e [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd).
+- Visual Studio Code com as extensões Python, GitHub Actions e Bicep.
 
-1. Clone the lab source repository, open it in Visual Studio Code, and change to the starter directory:
+1. Clone o repositório fonte do laboratório, abra-o no Visual Studio Code e mude para o diretório starter:
 
 ```powershell
 git clone https://github.com/MicrosoftLearning/mslearn-ai-multi-agents.git
 cd mslearn-ai-multi-agents\Allfiles\09-fabrikam-multi-agent-cicd
 ```
 
-2. Sign in and confirm the subscription:
+2. Faça login e confirme a assinatura:
 
 ```powershell
 az login
@@ -106,24 +107,24 @@ az account show --output table
 $env:AZURE_DEV_USER_AGENT = 'microsoft_foundry_skill'; azd auth login
 ```
 
-3. Use synthetic data only. Don't add an Azure client secret or an `AZURE_CREDENTIALS` secret to GitHub.
+3. Use apenas dados sintéticos. Não adicione um client secret do Azure nem um segredo `AZURE_CREDENTIALS` ao GitHub.
 
-4. Open `azure.yaml`. Confirm that scanner, reviewer, and orchestrator are hosted agents and dashboard is the only Container Apps service.
+4. Abra `azure.yaml`. Confirme que scanner, reviewer e orchestrator são hosted agents e que dashboard é o único serviço Container Apps.
 
-5. Open `agents/orchestrator.yml`. Identify its logical version, scanner/reviewer dependency ranges, exact model version, evaluation identity, and hosted Responses manifest.
+5. Abra `agents/orchestrator.yml`. Identifique sua versão lógica, intervalos de dependência scanner/reviewer, versão exata do modelo, identidade de avaliação e manifest Responses hospedado.
 
-6. Open `dashboard/app.py`. Find the release-set, release-channel, Container App revision, orchestrator version, and Responses endpoint fields shown to learners.
+6. Abra `dashboard/app.py`. Encontre os campos release-set, release-channel, Container App revision, versão do orchestrator e endpoint Responses mostrados aos alunos.
 
-## Task 2: Validate the starter locally
+## Tarefa 2: Validar o starter localmente
 
-1. Create the virtual environment and install dependencies:
+1. Crie o virtual environment e instale dependências:
 
 ```powershell
 .\scripts\setup.ps1
 . .\.venv\Scripts\Activate.ps1
 ```
 
-2. Run the complete credential-free validation:
+2. Execute a validação completa sem credenciais:
 
 ```powershell
 python scripts\preflight.py
@@ -134,24 +135,24 @@ python -m src.main validate --manifest artifacts\release-set.json --baseline ass
 az bicep build --file infra\main.bicep
 ```
 
-Expected results:
+Resultados esperados:
 
-- Preflight reports three Foundry hosted agents v2 and one dashboard.
-- Workflow validation confirms OIDC, serial deployments, version-pinned smoke calls, persisted rollback evidence, and dashboard-only traffic.
-- Targeted tests pass.
-- The compatibility report has `"compatible": true`.
-- Bicep builds without errors.
+- O preflight reporta três hosted agents v2 do Foundry e um dashboard.
+- A validação de workflow confirma OIDC, deployments seriais, chamadas smoke com versão fixa, evidência de rollback persistida e tráfego apenas pelo dashboard.
+- Testes direcionados passam.
+- O relatório de compatibilidade possui `"compatible": true`.
+- Bicep compila sem erros.
 
-3. Open `artifacts/release-set.json`. Confirm that remote Foundry names, versions, and endpoints are `null`. Pull-request validation is credential-free and can't invent deployment evidence. The deployment workflow fills those fields only after successful `azd deploy`.
+3. Abra `artifacts/release-set.json`. Confirme que nomes remotos do Foundry, versões e endpoints são `null`. A validação de pull-request é isenta de credenciais e não pode inventar evidência de deployment. O workflow de deployment preenche esses campos somente após um `azd deploy` bem-sucedido.
 
-4. Optional: press **F5** and choose a hosted-agent configuration to start the selected entrypoint with the VS Code Python debugger. Foundry Toolkit Agent Inspector can connect to the local hosted-agent server after you supply the required local environment values.
+4. Opcional: pressione **F5** e escolha uma configuração de hosted-agent para iniciar o ponto de entrada selecionado com o depurador Python do VS Code. O Foundry Toolkit Agent Inspector pode se conectar ao servidor hosted-agent local depois que você fornecer os valores de ambiente locais necessários.
 
-## Task 3: Create the practice repository
+## Tarefa 3: Criar o repositório de prática
 
-1. On GitHub, create a private repository named `fabrikam-agent-cicd`.
-2. Don't initialize it with a README, `.gitignore`, or license.
-3. Record the exact `<owner>/fabrikam-agent-cicd` value.
-4. Copy the starter into a separate practice repository:
+1. No GitHub, crie um repositório privado nomeado `fabrikam-agent-cicd`.
+2. Não o inicialize com um README, `.gitignore` ou licença.
+3. Registre o valor exato `<owner>/fabrikam-agent-cicd`.
+4. Copie o starter para um repositório de prática separado:
 
 ```powershell
 $labRoot = (Get-Location).Path
@@ -166,18 +167,18 @@ git branch -M main
 git remote add origin '<repository-url>'
 ```
 
-5. Don't push yet. A push to `main` deploys development.
+5. Não faça push ainda. Um push para `main` implanta development.
 
-## Task 4: Configure passwordless GitHub access
+## Tarefa 4: Configurar acesso GitHub sem senha
 
-GitHub Actions exchanges a short-lived GitHub OIDC token for an Entra token. Don't create a client secret.
+GitHub Actions troca um token OIDC de curta duração do GitHub por um token Entra. Não crie um client secret.
 
-1. In the Microsoft Entra admin center, create a single-tenant app registration named `fabrikam-agent-github`.
-2. Record:
-   - Application (client) ID as `AZURE_CLIENT_ID`.
-   - Directory (tenant) ID as `AZURE_TENANT_ID`.
-3. Open the linked Enterprise application and record its Object ID as `GITHUB_PRINCIPAL_ID`.
-4. Add one federated credential for each GitHub environment:
+1. No Microsoft Entra admin center, crie um app registration single-tenant nomeado `fabrikam-agent-github`.
+2. Registre:
+   - Application (client) ID como `AZURE_CLIENT_ID`.
+   - Directory (tenant) ID como `AZURE_TENANT_ID`.
+3. Abra a Enterprise application vinculada e registre seu Object ID como `GITHUB_PRINCIPAL_ID`.
+4. Adicione uma federated credential para cada GitHub environment:
 
 ```text
 repo:<owner>/fabrikam-agent-cicd:environment:development
@@ -185,7 +186,7 @@ repo:<owner>/fabrikam-agent-cicd:environment:staging
 repo:<owner>/fabrikam-agent-cicd:environment:production
 ```
 
-5. Select or create one resource group per environment:
+5. Selecione ou crie um resource group por ambiente:
 
 ```powershell
 $azureRegion = 'eastus2'
@@ -195,45 +196,45 @@ $suffix = (New-Guid).Guid.Substring(0, 8)
 }
 ```
 
-6. An Azure administrator must assign the Enterprise application these roles on each selected resource group:
+6. Um administrador Azure deve atribuir à Enterprise application estas funções em cada resource group selecionado:
 
 - **Contributor**
 - **Role Based Access Control Administrator**
 
-These permissions allow the workflow to create environment-specific Foundry projects, model deployments, identities, RBAC assignments, and dashboard resources.
+Essas permissões permitem que o workflow crie Foundry projects específicos do ambiente, deployments de modelos, identities, atribuições RBAC e recursos do dashboard.
 
-## Task 5: Configure GitHub environments
+## Tarefa 5: Configurar GitHub environments
 
-1. In repository **Settings** > **Environments**, create:
+1. Em Configurações (Settings) > Ambientes (Environments) do repositório, crie:
    - `development`
    - `staging`
    - `production`
-2. Add these environment variables to each environment:
+2. Adicione estas variáveis de ambiente a cada environment:
 
-| Variable | Development example | Requirement |
+| Variável | Exemplo (Development) | Requisito |
 |---|---|---|
-| `AZURE_CLIENT_ID` | `<application-client-id>` | Same OIDC application |
-| `AZURE_TENANT_ID` | `<directory-tenant-id>` | Same tenant |
-| `AZURE_SUBSCRIPTION_ID` | `<subscription-id>` | Target subscription |
-| `AZURE_LOCATION` | `eastus2` | Region with exact model quota |
-| `AZURE_ENV_NAME` | `lab09-cicd-dev` | Unique per environment |
+| `AZURE_CLIENT_ID` | `<application-client-id>` | Mesma aplicação OIDC |
+| `AZURE_TENANT_ID` | `<directory-tenant-id>` | Mesmo tenant |
+| `AZURE_SUBSCRIPTION_ID` | `<subscription-id>` | Subscription alvo |
+| `AZURE_LOCATION` | `eastus2` | Região com cota exata do modelo |
+| `AZURE_ENV_NAME` | `lab09-cicd-dev` | Único por ambiente |
 | `GITHUB_PRINCIPAL_ID` | `<enterprise-app-object-id>` | Enterprise application Object ID |
-| `AZURE_RESOURCE_GROUP_NAME` | `rg-lab09-dev-...` | Unique per environment |
+| `AZURE_RESOURCE_GROUP_NAME` | `rg-lab09-dev-...` | Único por ambiente |
 
-3. Use `lab09-cicd-stg` and `lab09-cicd-prod` plus their distinct resource groups for staging and production.
-4. Add required reviewers and restrict deployment branches for staging and production.
+3. Use `lab09-cicd-stg` e `lab09-cicd-prod` mais seus resource groups distintos para staging e production.
+4. Adicione revisores exigidos e restrinja branches de deploy para staging e production.
 
-Each GitHub environment maps to a separate resource group and Foundry project. The workflow promotes the same reviewed source identity. Production additionally verifies that staging has a persisted verified manifest for the same commit and reviewed release ID.
+Cada GitHub environment mapeia para um resource group separado e um Foundry project. O workflow promove a mesma identidade de origem revisada. A produção adicionalmente verifica que staging tem um manifesto verificado e persistido para o mesmo commit e reviewed release ID.
 
-## Task 6: Activate the workflows
+## Tarefa 6: Ativar os workflows
 
-1. Create `.github/workflows`:
+1. Crie `.github/workflows`:
 
 ```powershell
 New-Item -ItemType Directory -Force .github\workflows
 ```
 
-2. Copy the four supplied templates:
+2. Copie os quatro templates fornecidos:
 
 ```powershell
 Copy-Item assets\workflows\validate-agents.yml .github\workflows\validate-agents.yml
@@ -242,19 +243,19 @@ Copy-Item assets\workflows\canary-quality-gate.yml .github\workflows\canary-qual
 Copy-Item assets\workflows\rollback-agents.yml .github\workflows\rollback-agents.yml
 ```
 
-3. Review `.github/workflows/validate-agents.yml`.
+3. Revise `.github/workflows/validate-agents.yml`.
 
-It has no Azure login. It validates:
+Ele não tem login Azure. Ele valida:
 
-- Contracts and strict logical semantic versions.
-- Dependency DAG and reverse-dependency closure.
-- Exact `gpt-5.4-mini` / `2026-03-17` model policy.
-- Hosted-agent v2 declarations and separate entrypoints.
-- Source compilation, targeted tests, workflows, and deterministic dataset shape.
+- Contratos e versões semânticas lógicas estritas.
+- DAG de dependência e fechamento de dependência reversa.
+- Política exata de modelo `gpt-5.4-mini` / `2026-03-17`.
+- Declarações hosted-agent v2 e entrypoints separados.
+- Compilação da origem, testes direcionados, workflows e forma determinística do dataset.
 
-4. Review `.github/workflows/deploy-environment.yml`.
+4. Revise `.github/workflows/deploy-environment.yml`.
 
-The important deployment order is:
+A ordem de deployment importante é:
 
 ```text
 azd deploy scanner
@@ -272,9 +273,9 @@ azd ai agent invoke orchestrator --version <captured-version>
 azd deploy dashboard
 ```
 
-Every azd command sets `AZURE_DEV_USER_AGENT=microsoft_foundry_skill` inline. Scanner and reviewer are serial because concurrent deploys must not mutate the same selected azd state. Orchestrator deploys only after their immutable endpoints exist. Deployment evidence also records a concrete `/versions/<version>` endpoint for CLI verification. Runtime HTTP calls create a session with that same concrete version and reject a mismatched returned version.
+Cada comando azd define `AZURE_DEV_USER_AGENT=microsoft_foundry_skill` inline. Scanner e reviewer são seriais porque deploys concorrentes não devem mutar o mesmo estado azd selecionado. Orchestrator só faz deploy depois que seus endpoints imutáveis existirem. A evidência de deployment também registra um endpoint `/versions/<version>` concreto para verificação via CLI. Chamadas HTTP em runtime criam uma session com essa mesma versão concreta solicitada e rejeitam uma versão retornada que não coincida.
 
-5. Find `capture_release_set.py` in the deployment workflow. It captures:
+5. Encontre `capture_release_set.py` no workflow de deployment. Ele captura:
 
 ```text
 AGENT_SCANNER_NAME
@@ -288,26 +289,26 @@ AGENT_ORCHESTRATOR_VERSION
 AGENT_ORCHESTRATOR_RESPONSES_ENDPOINT
 ```
 
-6. Review `.github/workflows/canary-quality-gate.yml`.
+6. Revise `.github/workflows/canary-quality-gate.yml`.
 
-It refuses promotion unless the candidate artifact contains passing version-bound evaluation evidence. The healthy/regression fixture is secondary evidence used only to exercise the policy branches.
+Ele recusa promoção a menos que o artefato candidato contenha evidência de avaliação vinculada à versão e em passing. O fixture healthy/regression é evidência secundária usada apenas para exercitar os ramos de política.
 
-7. Review `.github/workflows/rollback-agents.yml`.
+7. Revise `.github/workflows/rollback-agents.yml`.
 
-It downloads `release-set.json` from the persistent `verified-<environment>` GitHub release, validates environment, verified status, release-set identity, all agent bindings, dashboard app/revision, and stable label evidence, then restores it. It doesn't infer that the second-newest revision is safe.
+Ele faz o download de `release-set.json` do GitHub release persistido `verified-<environment>`, valida o environment, o status verificado, a identidade do release-set, todos os bindings de agente, o app/revision do dashboard e a evidência do label stable, então o restaura. Ele não infere que a segunda-revisão-mais-recente seja segura.
 
-The deploy, quality, and rollback workflows share one environment-keyed concurrency group with `cancel-in-progress: false`, so two operations can't race while changing dashboard traffic or persisted release evidence.
+Os workflows de deploy, quality e rollback compartilham um grupo de concorrência keyeado por environment com `cancel-in-progress: false`, então duas operações não podem concorrer ao alterar o tráfego do dashboard ou a evidência de release persistida.
 
-8. Validate the activated copies:
+8. Valide as cópias ativadas:
 
 ```powershell
 python scripts\validate_workflows.py
 git status --short
 ```
 
-## Task 7: Deploy the initial development release
+## Tarefa 7: Implantar o release inicial de development
 
-1. Commit and push:
+1. Commit e push:
 
 ```powershell
 git add .
@@ -315,69 +316,69 @@ git commit -m "Initialize Foundry hosted-agent delivery"
 git push -u origin main
 ```
 
-2. In GitHub Actions, open **Deploy hosted-agent release set**.
+2. Em GitHub Actions, abra Deploy hosted-agent release set.
 
 Observe:
 
-- Credential-free validation completes first.
-- GitHub exchanges its environment OIDC token; no stored client secret is used.
-- Bicep creates a development Foundry project, exact model deployment, ACR, Log Analytics, Container Apps environment, and one dashboard Container App.
-- Scanner, reviewer, and orchestrator each create an immutable Foundry hosted-agent version.
-- Each agent is checked with `azd ai agent show` and a version-pinned smoke invocation.
-- The orchestrator's environment points to captured scanner and reviewer Responses endpoints plus exact versions; each call creates and verifies a session pinned to that version.
-- The two-record deterministic dataset runs against the pinned orchestrator.
-- One dashboard revision is deployed with 100 percent traffic and displays the exact selected release set.
-- Because no `verified-development` release exists and Azure reports only the infrastructure bootstrap revision, the workflow treats this as an explicit first release. After smoke, evaluation, stable-label dashboard, and version-evidence checks pass, it persists this release as the first verified baseline.
+- A validação sem credenciais completa primeiro.
+- O GitHub troca seu token OIDC do environment; nenhum client secret armazenado é usado.
+- Bicep cria um Foundry project de development, deployment de modelo exato, ACR, Log Analytics, Container Apps environment e um Container App de dashboard.
+- Scanner, reviewer e orchestrator cada um cria uma versão imutável do hosted-agent do Foundry.
+- Cada agente é checado com `azd ai agent show` e uma invocação smoke com versão fixa.
+- O ambiente do orchestrator aponta para os endpoints Responses capturados de scanner e reviewer mais versões exatas; cada chamada cria e verifica uma session fixada naquela versão.
+- O dataset determinístico de dois registros roda contra o orchestrator fixado.
+- Uma revisão do dashboard é implantada com 100% do tráfego e exibe o release set selecionado exato.
+- Como não existe um release `verified-development` e o Azure reporta apenas a revisão de bootstrap da infraestrutura, o workflow trata isso como um primeiro release explícito. Após smoke, avaliação, label stable do dashboard e checagens de evidência de versão passarem, ele persiste este release como a primeira baseline verificada.
 
-3. Download `deployment-evidence-development-<run-id>`.
-4. Open `release-set.json`. Compare each logical version with the immutable Foundry version.
-5. Open `evaluation-evidence.json`. Confirm the source commit, release-set ID, exact orchestrator version, dataset/evaluator identity, and `"status": "passed"`.
+3. Baixe `deployment-evidence-development-<run-id>`.
+4. Abra `release-set.json`. Compare cada versão lógica com a versão imutável do Foundry.
+5. Abra `evaluation-evidence.json`. Confirme o commit de origem, release-set ID, versão exata do orchestrator, identidade do dataset/evaluator e `"status": "passed"`.
 
-## Task 8: Verify the initial resources
+## Tarefa 8: Verificar os recursos iniciais
 
-1. In the Azure portal, open the development resource group.
-2. Open the Microsoft Foundry project.
-3. Confirm the `gpt-5.4-mini` deployment is version `2026-03-17`.
-4. Open **Agents** and confirm scanner, reviewer, and orchestrator are hosted agents with active immutable versions.
-5. Compare the agent names and versions with `release-set.json`.
-6. Confirm there aren't scanner, reviewer, or orchestrator Container Apps.
-7. Open the single Fabrikam release dashboard Container App.
-8. Under **Revision management**, confirm one selected dashboard revision has 100 percent traffic.
-9. Open the dashboard URL. Confirm it displays:
-   - `STABLE` channel.
-   - Its Container App revision.
+1. No portal do Azure, abra o resource group de development.
+2. Abra o projeto Microsoft Foundry.
+3. Confirme que o deployment `gpt-5.4-mini` está na versão `2026-03-17`.
+4. Abra **Agentes (Agents)** e confirme que scanner, reviewer e orchestrator são hosted agents com versões imutáveis ativas.
+5. Compare os nomes e versões dos agentes com `release-set.json`.
+6. Confirme que não existem Container Apps scanner, reviewer ou orchestrator.
+7. Abra o único Container App do dashboard Fabrikam.
+8. Em **Gerenciamento de revisões (Revision management)**, confirme que uma revisão selecionada do dashboard tem 100% do tráfego.
+9. Abra a URL do dashboard. Confirme que exibe:
+   - Canal `STABLE`.
+   - Sua revisão do Container App.
    - Release-set ID.
-   - Exact orchestrator name, Foundry version, and Responses endpoint.
-10. Submit the synthetic review form. Confirm the dashboard invokes the selected orchestrator.
+   - Nome exato do orchestrator, versão Foundry e endpoint Responses.
+10. Envie o formulário de revisão sintético. Confirme que o dashboard invoca o orchestrator selecionado.
 
-## Task 9: Create and review a candidate
+## Tarefa 9: Criar e revisar um candidato
 
-1. Create a branch:
+1. Crie uma branch:
 
 ```powershell
 git checkout -b feature/scanner-release-metadata
 ```
 
-2. In `agents/scanner.yml`, change:
+2. Em `agents/scanner.yml`, altere:
 
 ```yaml
 version: 1.2.0
 ```
 
-to:
+para:
 
 ```yaml
 version: 1.2.1
 ```
 
-3. Add one instruction sentence that doesn't change the tool contract:
+3. Adicione uma sentença de instrução que não altere o contrato da ferramenta:
 
 ```text
 Include a short confidence explanation for each reported finding.
 ```
 
-4. Run local validation.
-5. Commit, push, and create a pull request:
+4. Execute a validação local.
+5. Commit, push e crie um pull request:
 
 ```powershell
 git add agents\scanner.yml
@@ -385,123 +386,123 @@ git commit -m "Clarify scanner finding confidence"
 git push -u origin feature/scanner-release-metadata
 ```
 
-6. Open the pull-request workflow artifact.
-7. Confirm:
-   - Scanner logical version is `1.2.1`.
-   - Contract digest is present.
-   - No breaking contract finding exists.
-   - Orchestrator's `>=1.0.0,<2.0.0` dependency accepts scanner `1.2.1`.
-   - Hosted manifests remain Responses `2.0.0`, Python `3.13`.
-   - Remote Foundry deployment fields remain `null`.
+6. Abra o artefato do workflow de pull-request.
+7. Confirme:
+   - Versão lógica do scanner é `1.2.1`.
+   - O digest do contrato está presente.
+   - Não existe finding de quebra de contrato.
+   - A dependência `>=1.0.0,<2.0.0` do orchestrator aceita scanner `1.2.1`.
+   - Manifests hospedados permanecem Responses `2.0.0`, Python `3.13`.
+   - Campos de deployment remoto do Foundry permanecem `null`.
 
-8. Merge the pull request.
+8. Faça merge do pull request.
 
-## Task 10: Verify 75/25 dashboard exposure
+## Tarefa 10: Verificar exposição 75/25 do dashboard
 
-After the merge deployment succeeds:
+Após o deployment do merge ter sucesso:
 
-1. Download its deployment evidence.
-2. Confirm the candidate release set has new immutable Foundry versions and a new release-set ID.
-3. Confirm its dashboard revision records the candidate orchestrator's exact version endpoint and uses a Responses session pinned to that version.
-4. Open the dashboard's normal URL and refresh at least 12 times.
-5. Record when the page shows:
-   - Stable channel and the last-verified release-set identity.
-   - Candidate channel and the candidate release-set identity.
+1. Baixe sua evidência de deployment.
+2. Confirme que o release set candidato tem novas versões imutáveis do Foundry e um novo release-set ID.
+3. Confirme que a revisão do dashboard registra o endpoint de versão exata do orchestrator candidato e usa uma session Responses fixada naquela versão.
+4. Abra a URL normal do dashboard e atualize-a pelo menos 12 vezes.
+5. Registre quando a página mostrar:
+   - Canal stable e a identidade do último release-set verificado.
+   - Canal candidate e a identidade do release-set candidato.
 
-The sample is small, so don't expect exactly nine stable and three candidate responses. The configured weights, not a short random sample, are authoritative.
+A amostra é pequena, então não espere exatamente nove respostas stable e três candidate. Os pesos configurados, não uma curta amostra aleatória, são autoritativos.
 
-6. Open the `stable_label_url` from the candidate `release-set.json`. Its hostname begins `stable---`; the workflow obtains the app FQDN from Azure and verifies the label-to-revision mapping before recording it.
-7. Refresh it three times. Confirm it always reports the same stable dashboard revision and orchestrator version.
-8. Open the `candidate_label_url`.
-9. Refresh it three times. Confirm it always reports the candidate dashboard revision and candidate orchestrator version.
-10. In the Azure portal, open dashboard **Revision management** and verify the 75/25 weights and `stable`/`candidate` labels.
+6. Abra o `stable_label_url` do `release-set.json` candidato. Seu hostname começa com `stable---`; o workflow obtém o FQDN do app do Azure e verifica o mapeamento label->revision antes de registrá-lo.
+7. Atualize-o três vezes. Confirme que ele sempre reporta a mesma revisão de dashboard estável e a versão do orchestrator estável.
+8. Abra o `candidate_label_url`.
+9. Atualize-o três vezes. Confirme que ele sempre reporta a revisão do dashboard candidata e a versão do orchestrator candidata.
+10. No portal do Azure, abra Gerenciamento de revisões (Revision management) do dashboard e verifique os pesos 75/25 e os labels `stable`/`candidate`.
 
-These direct label routes are deterministic verification. Learners must not rely only on random refreshes.
+Essas rotas diretas por label são verificação determinística. Os alunos não devem confiar apenas em atualizações aleatórias.
 
-## Task 11: Promote the candidate across environments
+## Tarefa 11: Promover o candidato entre ambientes
 
-1. In GitHub Actions, run **Assess dashboard canary quality** with:
+1. Em GitHub Actions, execute Assess dashboard canary quality com:
    - Environment: `development`
-   - Deployment run ID: candidate deployment run ID
+   - Deployment run ID: deployment run ID candidato
    - Failed agent: `scanner`
    - Metric profile: `healthy`
-2. Confirm:
-   - Version-bound evaluation evidence is passing.
-   - Policy action is `promote`.
-   - Dashboard traffic changes from 75/25 to 0/100.
-   - Candidate dashboard revision receives the `stable` label.
-   - `verified-development` contains the persisted verified `release-set.json`.
-3. Open the stable label URL and verify the promoted release-set and exact orchestrator version.
+2. Confirme:
+   - Evidência de avaliação vinculada à versão está em passing.
+   - A ação de política é `promote`.
+   - O tráfego do dashboard muda de 75/25 para 0/100.
+   - A revisão candidata do dashboard recebe o label `stable`.
+   - `verified-development` contém o `release-set.json` verificado e persistido.
+3. Abra a URL do label stable e verifique o release-set promovido e a versão exata do orchestrator.
 
-4. Run **Deploy hosted-agent release set** manually for `staging`.
-5. Enter the same reviewed source commit deployed to development.
-6. Approve the protected staging environment.
-7. Run its healthy canary assessment to create `verified-staging`.
-8. Run **Deploy hosted-agent release set** for `production` with the same source commit.
-9. Confirm production waits for its protected-environment approval and verifies staging's:
-   - Source commit.
+4. Execute Deploy hosted-agent release set manualmente para `staging`.
+5. Informe o mesmo commit de origem revisado implantado em development.
+6. Aprove (approve) o environment protegido de staging.
+7. Execute sua avaliação healthy canary para criar `verified-staging`.
+8. Execute Deploy hosted-agent release set para `production` com o mesmo commit de origem.
+9. Confirme que production aguarda sua aprovação de environment protegido e verifica staging:
+   - Commit de origem.
    - Reviewed release ID.
-   - Verified status.
+   - Status verificado.
 
-The Foundry agent version numbers can differ across projects. The reviewed source identity, logical versions, contracts, model policy, and evaluation identity remain the same.
+Os números de versão do agente Foundry podem diferir entre projects. A identidade da origem revisada, versões lógicas, contratos, política de modelo e identidade de avaliação permanecem as mesmas.
 
-## Task 12: Exercise compatible-set rollback
+## Tarefa 12: Exercitar rollback por conjunto compatível
 
-1. Run **Assess dashboard canary quality** for a candidate with:
+1. Execute Assess dashboard canary quality para um candidato com:
    - Metric profile: `regression`
    - Failed agent: `scanner`
-2. Confirm policy action is `rollback`.
-3. Open **Restore verified Foundry release set**.
-4. Confirm it:
-   - Downloads the candidate release set from the deployment run.
-   - Downloads the persisted last-verified environment manifest.
-   - Derives rollback closure `orchestrator, scanner` in reverse dependency order.
-   - Restores 100 percent dashboard traffic to the exact revision recorded in the verified manifest.
-   - Applies the `stable` label to that revision.
-   - Verifies the dashboard reports the persisted release-set ID and exact orchestrator version.
-   - Invokes that exact Foundry orchestrator version with `azd ai agent invoke --version`.
-   - Creates a GitHub incident issue and uploads rollback evidence.
+2. Confirme que a ação de política é `rollback`.
+3. Abra Restore verified Foundry release set.
+4. Confirme que ele:
+   - Faz o download do release set candidato do deployment run.
+   - Faz o download do manifesto ambiente do último verificado persistido.
+   - Deriva o fechamento de rollback `orchestrator, scanner` em ordem de dependência reversa.
+   - Restaura 100% do tráfego do dashboard para a revisão exata registrada no manifesto verificado.
+   - Aplica o label `stable` a essa revisão.
+   - Verifica que o dashboard reporta o release-set ID persistido e a versão exata do orchestrator.
+   - Invoca essa versão exata do orchestrator Foundry com `azd ai agent invoke --version`.
+   - Cria uma issue de incidente no GitHub e faz upload da evidência de rollback.
 
-5. Open `rollback-evidence.json`. Confirm it records:
-   - Restored release-set ID.
-   - Dashboard revision.
-   - Exact orchestrator name, version, and Responses endpoint.
-   - 100 percent traffic.
-6. Open the stable dashboard URL and verify the same values.
+5. Abra `rollback-evidence.json`. Confirme que registra:
+   - Release-set ID restaurado.
+   - Revisão do dashboard.
+   - Nome exato do orchestrator, versão e endpoint Responses.
+   - 100% do tráfego.
+6. Abra a URL estável do dashboard e verifique os mesmos valores.
 
-Rollback doesn't delete immutable Foundry versions. It restores traffic to a dashboard revision that is already bound to a known-compatible Foundry release set.
+Rollback não exclui versões imutáveis do Foundry. Ele restaura o tráfego para uma revisão do dashboard que já está vinculada a um release set do Foundry conhecido como compatível.
 
-## Task 13: Review the release evidence
+## Tarefa 13: Revisar as evidências do release
 
-Retain:
+Retenha:
 
-- Pull-request compatibility report.
-- Candidate and verified release-set manifests.
-- Version-bound evaluation evidence.
-- 75/25 and 0/100 traffic evidence.
-- Stable/candidate direct-route responses.
-- Rollback closure, restored dashboard metadata, pinned invocation output, and incident link.
+- Relatório de compatibilidade do pull-request.
+- Manifests do release-set candidato e verificado.
+- Evidência de avaliação vinculada à versão.
+- Evidência de tráfego 75/25 e 0/100.
+- Respostas de rota direta stable/candidate.
+- Fechamento de rollback, metadados restaurados do dashboard, saída de invocação fixada e link do incidente.
 
-### Reflect on the release design
+### Reflita sobre o design do release
 
-1. Why is a logical semantic version insufficient to identify a deployed Foundry hosted agent?
-2. Why must the release set capture an immutable version endpoint and create a version-bound session instead of invoking only a logical agent name?
-3. Why does the orchestrator deploy after scanner and reviewer even though the specialist agents are independent?
-4. Why is the dashboard, rather than the Foundry agents, the 75/25 traffic boundary?
-5. How do direct label URLs make canary verification deterministic?
-6. Why can't rollback assume the second-newest Container App revision is safe?
-7. Why does reverse-dependency closure include orchestrator when scanner fails?
-8. Which release fields must remain identical when promoting reviewed source from staging to production, and which environment-specific Foundry values may differ?
-9. Why are healthy/regression fixtures secondary to version-bound smoke evaluation evidence?
-10. Which managed identity invokes Foundry from the dashboard, and why is a stored API key unnecessary?
+1. Por que uma versão semântica lógica é insuficiente para identificar um agente deployed do Foundry?
+2. Por que o release set deve capturar um endpoint de versão imutável e criar uma session vinculada à versão em vez de invocar apenas um nome lógico do agente?
+3. Por que o orchestrator faz deploy depois do scanner e reviewer mesmo que os agentes especialistas sejam independentes?
+4. Por que o dashboard, em vez dos agentes Foundry, é a fronteira de tráfego 75/25?
+5. Como URLs diretas por label tornam a verificação canary determinística?
+6. Por que o rollback não pode supor que a segunda-revisão-mais-recente do Container App seja segura?
+7. Por que o fechamento por dependência reversa inclui o orchestrator quando o scanner falha?
+8. Quais campos de release devem permanecer idênticos ao promover a origem revisada de staging para production, e quais valores Foundry específicos do ambiente podem diferir?
+9. Por que os fixtures healthy/regression são secundários à evidência de avaliação smoke vinculada à versão?
+10. Qual identidade gerenciada invoca o Foundry a partir do dashboard, e por que uma API key armazenada é desnecessária?
 
-## Optional challenge: Extend the smoke-test dataset
+## Desafio opcional: Estender o dataset de smoke-test
 
-Add a third deterministic smoke record that requires the orchestrator to explain why a release should be held when scanner and reviewer disagree. Increment the dataset version in every agent definition, update the targeted test expectation, and confirm the reviewed release ID changes even though no tool contract changed. Don't weaken the exact model policy or promote without version-bound evidence.
+Adicione um terceiro registro determinístico de smoke que exija que o orchestrator explique por que um release deve ser retido quando scanner e reviewer discordam. Incremente a versão do dataset em cada definição de agente, atualize a expectativa do teste direcionado e confirme que o reviewed release ID muda mesmo sem alteração do contrato da ferramenta. Não enfraqueça a política de modelo exata nem promova sem evidência vinculada à versão.
 
-## Task 14: Clean up
+## Tarefa 14: Limpeza
 
-Delete each lab resource group:
+Delete cada grupo de recurso do laboratório:
 
 ```powershell
 az group delete --name '<development-resource-group>' --yes --no-wait
@@ -509,19 +510,19 @@ az group delete --name '<staging-resource-group>' --yes --no-wait
 az group delete --name '<production-resource-group>' --yes --no-wait
 ```
 
-Then:
+Em seguida:
 
-1. Delete the `development`, `staging`, and `production` GitHub environments.
-2. Delete the automation-owned `verified-development`, `verified-staging`, and `verified-production` GitHub releases.
-3. Delete the Entra app registration and Enterprise application if they were created only for this lab.
-4. Delete the practice repository if you no longer need the evidence.
+1. Exclua os GitHub environments `development`, `staging` e `production`.
+2. Exclua os GitHub releases de propriedade da automação `verified-development`, `verified-staging` e `verified-production`.
+3. Exclua o app registration do Entra e a Enterprise application se eles foram criados apenas para este laboratório.
+4. Exclua o repositório de prática se você não precisar mais da evidência.
 
-## Live-only assumptions
+## Suposições apenas para execução ao vivo
 
-No live deployment is required to validate the lab source. During an actual learner deployment:
+Nenhum deployment ao vivo é necessário para validar a origem do laboratório. Durante um deployment real do aluno:
 
-- The selected region must support `gpt-5.4-mini` version `2026-03-17` with sufficient quota.
-- `azd` must return `AGENT_<SERVICE>_NAME`, `AGENT_<SERVICE>_VERSION`, and `AGENT_<SERVICE>_RESPONSES_ENDPOINT` after each hosted-agent deployment.
-- Hosted-agent session and Responses endpoints must accept Microsoft Entra bearer tokens obtained by `DefaultAzureCredential`, and session creation must return the concrete requested version.
-- GitHub environment protection must enforce staging and production approvals.
-- Container Apps revision labels and direct label URLs must be enabled by the current Azure CLI/Container Apps API.
+- A região selecionada deve suportar `gpt-5.4-mini` versão `2026-03-17` com cota suficiente.
+- `azd` deve retornar `AGENT_<SERVICE>_NAME`, `AGENT_<SERVICE>_VERSION` e `AGENT_<SERVICE>_RESPONSES_ENDPOINT` após cada deployment de hosted-agent.
+- Hosted-agent session e endpoints Responses devem aceitar tokens bearer Microsoft Entra obtidos por `DefaultAzureCredential`, e a criação de session deve retornar a versão concreta solicitada.
+- A proteção de environment do GitHub deve impor aprovações para staging e production.
+- Labels de revisão do Container Apps e URLs diretas por label devem ser habilitados pela versão atual do Azure CLI/Container Apps API.

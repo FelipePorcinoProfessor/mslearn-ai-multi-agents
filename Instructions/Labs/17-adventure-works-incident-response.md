@@ -1,53 +1,54 @@
 ---
 lab:
-  title: 'Debug a multi-agent production incident with trace evidence'
-  description: 'Use Application Insights, KQL, trace snapshots, safe replay, structured hypotheses, and evidence-linked postmortems to diagnose an Adventure Works incident.'
+  title: 'Depurar um incidente de produção multiagente com evidência de trace'
+  description: 'Use Application Insights, KQL, snapshots de trace, replay seguro, hipóteses estruturadas e postmortems vinculados a evidências para diagnosticar um incidente da Adventure Works.'
   duration: 45
   level: 400
   islab: true
   status: 'released'
+layout: default
 ---
 
-# Debug a multi-agent production incident with trace evidence
+# Depurar um incidente de produção multiagente com evidência de trace
 
-## Customer scenario
+## Cenário do cliente
 
-Adventure Works observes a drop in checkout completion, but the failing payment span may be only a symptom. The on-call team needs a repeatable way to reconstruct distributed traces, preserve replay inputs, compare failed and successful paths, test competing hypotheses, and document a root cause supported by evidence.
+Adventure Works observa uma queda na conclusão de checkout, mas o span de pagamento com falha pode ser apenas um sintoma. A equipe on-call precisa de uma forma repetível de reconstruir traces distribuídos, preservar entradas de replay, comparar caminhos com falha e bem-sucedidos, testar hipóteses concorrentes e documentar uma causa raiz suportada por evidência.
 
-## Lab scenario
+## Cenário do laboratório
 
-You will emit a synthetic multi-agent incident through OpenTelemetry, retrieve it from Application Insights with KQL, save a sanitized snapshot to Blob Storage, run side-effect-free replay, and evaluate structured hypotheses. You will produce a blameless postmortem only after the evidence supports or rejects each hypothesis.
+Você irá emitir um incidente sintético multiagente através do OpenTelemetry, recuperá-lo do Application Insights com KQL, salvar um snapshot sanitizado no Blob Storage, executar um replay sem efeitos colaterais e avaliar hipóteses estruturadas. Você produzirá um postmortem sem atribuição de culpa somente depois que a evidência suportar ou rejeitar cada hipótese.
 
-<!-- LAB DIAGRAM PLACEHOLDER: Show telemetry emission, KQL investigation, sanitized snapshot capture, safe replay, hypothesis evaluation, remediation, and postmortem evidence. -->
+<!-- MARCADOR DE DIAGRAMA DO LAB: Mostrar emissão de telemetria, investigação KQL, captura de snapshot sanitizado, replay seguro, avaliação de hipóteses, remediação e evidências do postmortem. -->
 
-By the end of this exercise, you will be able to:
+Ao final deste exercício, você será capaz de:
 
-- Query multi-agent traces and latency with Application Insights KQL.
-- Capture model, prompt-hash, tool-response, and span-timeline replay artifacts.
-- Test model, prompt, tool, orchestration, and configuration hypotheses systematically.
-- Connect detection, remediation, escalation, and postmortem actions to evidence.
+- Consultar traces multiagente e latência com Application Insights KQL.
+- Capturar artifacts de replay: modelo, prompt-hash, resposta de ferramenta e timeline de spans.
+- Testar hipóteses sobre modelo, prompt, ferramenta, orquestração e configuração de forma sistemática.
+- Conectar detecção, remediação, escalonamento e ações de postmortem à evidência.
 
-> **Important**: Application Insights and Log Analytics ingestion are billable. Emit only the bounded synthetic trace. Snapshots must contain mocked tool results and no customer PII or hidden model reasoning.
+> **Importante**: Application Insights e Log Analytics têm ingestão faturável. Emita apenas o trace sintético delimitado. Snapshots devem conter resultados de ferramenta mockados e não conter PII de clientes nem raciocínio de modelo oculto.
 
-## Task 1: Prepare the lab
+## Tarefa 1: Preparar o laboratório
 
-1. Install [Python 3.10 or later](https://www.python.org/downloads/), [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd), and [Bicep](https://learn.microsoft.com/azure/azure-resource-manager/bicep/install).
+1. Instale [Python 3.10 or later](https://www.python.org/downloads/), [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd), e [Bicep](https://learn.microsoft.com/azure/azure-resource-manager/bicep/install).
 
-You need permission to create Log Analytics, Application Insights, Storage, and role assignments. Authenticate with your signed-in identity.
+Você precisa de permissão para criar Log Analytics, Application Insights, Storage e atribuições de função. Autentique-se com sua identidade logada.
 
-**Clone and open the repository**
+**Clone e abra o repositório**
 
-2. If you haven't already done so, clone the [lab source repository](https://github.com/MicrosoftLearning/mslearn-ai-multi-agents/tree/main), or fork the repository and clone your fork:
+2. Se ainda não fez, clone o [lab source repository](https://github.com/MicrosoftLearning/mslearn-ai-multi-agents/tree/main), ou faça um fork do repositório e clone seu fork:
 
 ```console
 git clone https://github.com/MicrosoftLearning/mslearn-ai-multi-agents.git
 ```
 
-3. Open the cloned repository in Visual Studio Code.
+3. Abra o repositório clonado no Visual Studio Code.
 
-**Verify tools and authentication**
+**Verifique as ferramentas e a autenticação**
 
-4. Validate the required tools, credentials, and active subscription from the VS Code terminal:
+4. Valide as ferramentas necessárias, credenciais e assinatura ativa a partir do terminal do VS Code:
 
 ```powershell
 cd Allfiles\17-adventure-works-incident-response
@@ -57,13 +58,13 @@ python --version
 az account show --output table
 ```
 
-**Architecture checkpoint**
+**Checkpoint de arquitetura**
 
-Review `scripts/emit_synthetic_trace.py`, the snapshot and hypothesis schemas, the KQL queries, `src/main.py`, `src/replay.py`, `src/remediation.py`, `.env.example`, and `infra/main.bicep`. Before continuing, confirm that the incident path is `synthetic trace -> KQL investigation -> sanitized snapshot -> safe replay -> hypothesis decision -> bounded remediation -> evidence-linked postmortem`.
+Revise `scripts/emit_synthetic_trace.py`, os schemas de snapshot e hipótese, as consultas KQL, `src/main.py`, `src/replay.py`, `src/remediation.py`, `.env.example` e `infra/main.bicep`. Antes de continuar, confirme que o caminho do incidente é `synthetic trace -> KQL investigation -> sanitized snapshot -> safe replay -> hypothesis decision -> bounded remediation -> evidence-linked postmortem`.
 
-## Task 2: Build the virtual environment
+## Tarefa 2: Construa o ambiente virtual
 
-1. On Windows, create and activate the virtual environment and initialize `.env`:
+1. No Windows, crie e ative o ambiente virtual e inicialize `.env`:
 
 ```powershell
 ./scripts/setup.ps1
@@ -71,26 +72,26 @@ Review `scripts/emit_synthetic_trace.py`, the snapshot and hypothesis schemas, t
 Copy-Item .env.example .env
 ```
 
-> On macOS/Linux, run `bash scripts/setup.sh`, `source .venv/bin/activate`, and `cp .env.example .env` instead.
+> No macOS/Linux, execute `bash scripts/setup.sh`, `source .venv/bin/activate` e `cp .env.example .env` em vez disso.
 
-## Task 3: Deploy Azure resources
+## Tarefa 3: Faça o deploy dos recursos Azure
 
-1. Review Log Analytics ingestion and retention, Application Insights, Storage, Event Hubs, alerting costs, and required role access before provisioning.
-2. Use a unique environment and bounded synthetic traces.
+1. Revise ingestão e retenção do Log Analytics, Application Insights, Storage, Event Hubs, custos de alertas e acesso de função requerido antes de provisionar.
+2. Use um ambiente único e traces sintéticos delimitados.
 
-`azd` provisions infrastructure; trace emission and remediation run separately.
+`azd` provisiona a infraestrutura; emissão de trace e remediação executam separadamente.
 
-**Set the deployment values**
+**Defina os valores de deployment**
 
-3. Set `$azureRegion` to an approved region that supports the required services.
-4. Replace the example value `eastus2` if needed.
-> **Resource group:** If your lab environment provides a precreated resource group, set `$resourceGroupName` to its name. Otherwise, leave `$resourceGroupName` empty so the script creates a unique resource group in your subscription.
+3. Defina `$azureRegion` para uma região aprovada que suporte os serviços requeridos.
+4. Substitua o valor de exemplo `eastus2` se necessário.
+> **Resource group:** Se seu ambiente de laboratório fornecer um resource group pré-criado, defina `$resourceGroupName` com seu nome. Caso contrário, deixe `$resourceGroupName` vazio para que o script crie um resource group único em sua assinatura.
 
-> **Note:** `AZURE_DEV_USER_AGENT` tags provisioning for attribution and is not exported to `.env`. Remove it afterward to avoid tagging unrelated commands.
+> **Nota:** `AZURE_DEV_USER_AGENT` marca o provisioning para atribuição e não é exportado para `.env`. Remova-o depois para evitar taguear comandos não relacionados.
 
-**Validate and provision the infrastructure**
+**Valide e provisione a infraestrutura**
 
-5. Run the following commands:
+5. Execute os comandos a seguir:
 
 ```powershell
 $azureRegion = 'eastus2'
@@ -111,13 +112,13 @@ azd env get-values | Out-File .env -Encoding utf8
 Remove-Item Env:AZURE_DEV_USER_AGENT
 ```
 
-> **Note:** If provisioning fails, inspect the first deployment error. Check monitoring and messaging availability, resource naming, principal ID, policy restrictions, and role-assignment permissions. Correct the cause and rerun `azd provision`.
+> **Nota:** Se o provisionamento falhar, inspecione o primeiro erro de deployment. Verifique disponibilidade de monitoramento e mensageria, nomes de recursos, principal ID, restrições de policy e permissões de role-assignment. Corrija a causa e execute novamente `azd provision`.
 
-**Verify the generated environment**
+**Verifique o ambiente gerado**
 
-6. After provisioning succeeds, validate that `.env` includes the Application Insights and Log Analytics identifiers, Storage endpoint and container names, Event Hubs namespace and hub names, and principal values required by the application.
-7. Do not add storage keys, connection strings, shared-access keys, or tokens.
-8. Verify the effective Event Hubs network boundary and receiver authorization:
+6. Após o provisionamento ter sucesso, valide que `.env` inclui os identificadores do Application Insights e Log Analytics, endpoint e nomes de container do Storage, nomes do namespace e hubs do Event Hubs, e valores de principal necessários pela aplicação.
+7. Não adicione chaves de storage, connection strings, shared-access keys ou tokens.
+8. Verifique a fronteira de rede efetiva do Event Hubs e a autorização do receiver:
 
 ```powershell
 $values = azd env get-values --output json | ConvertFrom-Json
@@ -139,18 +140,18 @@ if ($dataPlaneRoles.Count -ne 0) { throw 'The remediation receiver must not inhe
 'EVENT_HUB_BOUNDARIES_VALIDATED'
 ```
 
-Expect `EVENT_HUB_BOUNDARIES_VALIDATED`, `Enabled`/`Allow`, one exact-hub **Azure Event Hubs Data Receiver** role, and zero broader sender/owner data-plane roles. The Bicep template enables the Event Hubs namespace's native public network access and default **Allow** action so the local consumer can receive alert events. Microsoft Entra authentication and the exact-hub receiver role are still required. Production environments should provide and validate an approved private access path.
+Espere `EVENT_HUB_BOUNDARIES_VALIDATED`, `Enabled`/`Allow`, uma role exata **Azure Event Hubs Data Receiver**, e zero roles mais amplas de sender/owner no plano de dados. O template Bicep habilita o acesso de rede público nativo do namespace Event Hubs e a ação padrão **Allow** para que o consumidor local possa receber eventos de alerta. Autenticação Microsoft Entra e a role exata de receiver do hub ainda são requeridas. Ambientes de produção devem fornecer e validar um caminho de acesso privado aprovado.
 
-## Task 4: Implement the solution
+## Tarefa 4: Implemente a solução
 
-Each placeholder marks incomplete code. Copy each supplied snippet into its placeholder location, remove the `LAB PLACEHOLDER` comment, replace only the indicated incomplete line or block, and preserve the surrounding indentation.
+Cada placeholder marca código incompleto. Copie cada snippet fornecido para sua localização placeholder, remova o comentário `LAB PLACEHOLDER`, substitua apenas a linha ou bloco incompleto indicado, e preserve a indentação circundante.
 
-> **Tip:** After you copy and paste each Python snippet, validate its indentation against the surrounding function or class before running the code.
+> **Dica:** Depois de copiar e colar cada snippet Python, valide sua indentação em relação à função ou classe circundante antes de executar o código.
 
-**Build a sanitized replay snapshot**
+**Construa um snapshot de replay sanitizado**
 
-1. In `src/main.py`, find `# LAB PLACEHOLDER 1`.
-2. Replace only the six empty collection declarations beneath it with:
+1. Em `src/main.py`, localize `# LAB PLACEHOLDER 1`.
+2. Substitua apenas as seis declarações de coleção vazias abaixo dele por:
 
 ```python
   spans = []
@@ -205,12 +206,12 @@ Each placeholder marks incomplete code. Copy each supplied snippet into its plac
       }
 ```
 
-Only the named fields cross the telemetry boundary. Message bodies, credentials, and hidden reasoning are never copied.
+Apenas os campos nomeados cruzam a fronteira de telemetria. Corpos de mensagens, credenciais e raciocínio oculto nunca são copiados.
 
-**Resolve generic evidence paths**
+**Resolva caminhos genéricos de evidência**
 
-3. In `src/analysis.py`, find `# LAB PLACEHOLDER 2`.
-4. Replace only the incomplete `values_at_path()` function associated with it with:
+3. Em `src/analysis.py`, localize `# LAB PLACEHOLDER 2`.
+4. Substitua apenas a função incompleta `values_at_path()` associada por:
 
 ```python
 def values_at_path(document: Any, path: str) -> list[Any]:
@@ -228,24 +229,24 @@ def values_at_path(document: Any, path: str) -> list[Any]:
   return values
 ```
 
-Wildcard traversal lets hypotheses address observed collections without embedding incident-specific IDs.
+A travessia com coringa permite que hipóteses abordem coleções observadas sem embutir IDs específicos do incidente.
 
-**Add the less-than predicate**
+**Adicione o predicado menor-que**
 
-5. Find `# LAB PLACEHOLDER 3`.
-6. Add this branch directly beneath it:
+5. Encontre `# LAB PLACEHOLDER 3`.
+6. Adicione este ramo diretamente abaixo dele:
 
 ```python
     elif operator == "less_than":
       passed = any(float(value) < float(expected) for value in values)
 ```
 
-The existing function still records failed predicates as contradictory evidence and absent paths as missing evidence.
+A função existente ainda registra predicados falhos como evidência contraditória e caminhos ausentes como evidência faltante.
 
-**Reconstruct the trace with captured mocks**
+**Reconstrua o trace com mocks capturados**
 
-7. In `src/replay.py`, find `# LAB PLACEHOLDER 4`.
-8. Replace only the incomplete `reconstruct_trace()` function associated with it with:
+7. Em `src/replay.py`, localize `# LAB PLACEHOLDER 4`.
+8. Substitua apenas a função incompleta `reconstruct_trace()` associada por:
 
 ```python
 def reconstruct_trace(snapshot: dict[str, Any]) -> dict[str, Any]:
@@ -295,12 +296,12 @@ def reconstruct_trace(snapshot: dict[str, Any]) -> dict[str, Any]:
   }
 ```
 
-This controlled reconstruction verifies prompt hashes and substitutes captured synthetic tool responses. It does not re-execute model or application behavior and cannot call a production tool.
+Esta reconstrução controlada verifica hashes de prompt e substitui respostas sintéticas de ferramenta capturadas. Ela não reexecuta comportamento de modelo ou aplicação e não pode chamar uma ferramenta de produção.
 
-**Synthesize only supported evidence**
+**Sintetize somente evidência suportada**
 
-9. In `src/postmortem.py`, find `# LAB PLACEHOLDER 5`.
-10. Replace only the incomplete `summarize_evidence()` function associated with it with:
+9. Em `src/postmortem.py`, localize `# LAB PLACEHOLDER 5`.
+10. Substitua apenas a função incompleta `summarize_evidence()` associada por:
 
 ```python
 def summarize_evidence(analysis: list[dict[str, Any]], replay: dict[str, Any]) -> tuple[str, str]:
@@ -337,25 +338,25 @@ def summarize_evidence(analysis: list[dict[str, Any]], replay: dict[str, Any]) -
   return root_cause, evidence_summary
 ```
 
-The report selects only the highest-priority supported hypothesis and refuses to overstate incomplete replay evidence.
+O relatório seleciona somente a hipótese suportada de maior prioridade e se recusa a exagerar evidência de replay incompleta.
 
-**Check the completed code**
+**Verifique o código completado**
 
-11. Check the completed code locally:
+11. Verifique o código completado localmente:
 
 ```console
 python -m py_compile src/main.py src/analysis.py src/replay.py src/postmortem.py src/remediation.py
 python scripts/preflight.py --require-complete
 ```
 
-12. Confirm that compilation returns no output.
-13. Before provisioning, confirm that preflight validates the schema, hypotheses, and three KQL files; Azure configuration checks can remain `not ready`.
+12. Confirme que a compilação não retorna saída.
+13. Antes do provisionamento, confirme que o preflight valida o schema, hipóteses e os três arquivos KQL; checagens de configuração do Azure podem permanecer `not ready`.
 
-No preflight check sends telemetry or reads Azure data.
+Nenhuma verificação preflight envia telemetria ou lê dados do Azure.
 
-## Task 5: Run the solution
+## Tarefa 5: Execute a solução
 
-1. Run the incident investigation commands:
+1. Execute os comandos de investigação do incidente:
 
 ```console
 python scripts/emit_synthetic_trace.py
@@ -367,113 +368,114 @@ python -m src.remediation --max-wait-seconds 30 --max-events 10
 python -m src.postmortem --snapshot reports/<operation-id>.snapshot.json --analysis reports/hypothesis-results.json --replay reports/replay-comparison.json
 ```
 
-The synthetic emitter exports the root checkout as a server request, uses a deterministic `1.0` lab sampling ratio, and performs a bounded telemetry flush before it exits. These settings keep the one-shot lab run aligned with the `AppRequests`/`AppDependencies` KQL contract rather than process-shutdown timing or production sampling.
+O emissor sintético exporta o checkout raiz como uma server request, usa uma razão de amostragem lab determinística `1.0`, e realiza um flush de telemetria delimitado antes de sair. Essas configurações mantêm a execução one-shot do laboratório alinhada com o contrato KQL `AppRequests`/`AppDependencies` em vez do timing de encerramento de processo ou amostragem de produção.
 
-**Understand the output**
+**Entenda a saída**
 
-A snapshot contains lowercase span fields, deployment and configuration versions, prompt hashes, synthetic prompt templates, and mock tool responses. Hypothesis results separate `supporting`, `contradicting`, and `missing` evidence. Trace reconstruction reports prompt fidelity, failed steps, mock coverage, and divergences with `side_effects_enabled: false`; it is not behavioral re-execution. The postmortem cites those measurements; remediation records a proposed action without production writes.
+Um snapshot contém campos de span em lowercase, versões de deployment e configuração, prompt hashes, templates de prompt sintético e respostas mockadas de ferramentas. Resultados de hipótese separam evidência `supporting`, `contradicting` e `missing`. A reconstrução de trace relata fidelidade de prompt, passos falhos, cobertura de mock de ferramentas e divergências com `side_effects_enabled: false`; não é reexecução comportamental. O postmortem cita essas medições; a remediação registra uma ação proposta sem gravações em produção.
 
-`kql/01-find-candidates.kql` is the broad discovery query; use its operation ID and failure columns to choose one bounded trace. `kql/02-trace-detail.kql` filters that ID and projects the fields consumed by `sanitize_rows()`. `kql/03-hypothesis-comparison.kql` compares successful and failed cohorts so a version or error-type difference is not inferred from a single trace.
+`kql/01-find-candidates.kql` é a consulta de descoberta ampla; use seu operation ID e colunas de falha para escolher um trace delimitado. `kql/02-trace-detail.kql` filtra esse ID e projeta os campos consumidos por `sanitize_rows()`. `kql/03-hypothesis-comparison.kql` compara coortes bem-sucedidas e com falha para que uma diferença de versão ou tipo de erro não seja inferida a partir de um único trace.
 
-## Task 6: Validate the implementation
+## Tarefa 6: Valide a implementação
 
-**Validate trace capture**
+**Valide captura de trace**
 
-1. Confirm the candidate query returns both successful and failed synthetic operations.
-2. Confirm that the trace detail preserves parent-child order and durations.
-3. Confirm that the snapshot is uploaded to the configured Blob container.
-4. Delete the local snapshot file.
-5. Download the snapshot again.
-6. Confirm that the downloaded snapshot remains usable.
+1. Confirme que a query candidata retorna operações sintéticas tanto bem-sucedidas quanto com falha.
+2. Confirme que o detalhe do trace preserva a ordem pai-filho e as durações.
+3. Confirme que o snapshot foi enviado para o container Blob configurado.
+4. Delete o arquivo local do snapshot.
+5. Baixe o snapshot novamente.
+6. Confirme que o snapshot baixado permanece utilizável.
 
-**Validate hypotheses and replay**
+**Valide hipóteses e replay**
 
-7. For each hypothesis, record supporting, contradicting, and missing evidence.
-8. Confirm the snapshot contains `configuration_versions`, `model_deployments`, lowercase span `success`, `prompts`, prompt hashes, and actual synthetic response objects with success flags under `tool_mocks`.
-9. Confirm that the failed shipped scenario supports the pricing model-version statement from observed `synthetic-pricing-v2`, `SyntheticPriceFormatError`, and `success: false` values.
-10. Confirm that the other shipped hypotheses evaluate without missing paths.
-11. Confirm replay preserves `status: false` and reports failed-step and tool mock response coverage.
-12. Change the prompt text.
-13. Confirm that the changed prompt text causes a hash divergence.
+7. Para cada hipótese, registre evidência de suporte, contraditória e ausente.
+8. Confirme que o snapshot contém `configuration_versions`, `model_deployments`, spans em lowercase `success`, `prompts`, prompt hashes e objetos de resposta sintética reais com flags de sucesso sob `tool_mocks`.
+9. Confirme que o cenário com falha enviado suporta a afirmação de modelo de preço-versão a partir dos valores observados `synthetic-pricing-v2`, `SyntheticPriceFormatError` e `success: false`.
+10. Confirme que as outras hipóteses enviadas avaliam sem caminhos faltantes.
+11. Confirme que o replay preserva `status: false` e relata cobertura de passos falhos e respostas mock de ferramenta.
+12. Altere o texto do prompt.
+13. Confirme que o texto do prompt alterado causa uma divergência de hash.
 
-**Compare trace cohorts**
+**Compare coortes de trace**
 
-14. Run `kql/03-hypothesis-comparison.kql`.
-15. Confirm the failed cohort reports `synthetic-pricing-v2` plus `SyntheticPriceFormatError`, while the successful cohort reports `synthetic-pricing-v1` without that error type.
+14. Execute `kql/03-hypothesis-comparison.kql`.
+15. Confirme que a coorte com falha reporta `synthetic-pricing-v2` além de `SyntheticPriceFormatError`, enquanto a coorte bem-sucedida reporta `synthetic-pricing-v1` sem aquele tipo de erro.
 
-**Validate alert remediation**
+**Valide a remediação de alerta**
 
-16. In Azure Monitor, confirm `aw-synthetic-pricing-failure` is enabled, evaluates every minute over a 15-minute window, and its Action Group targets `incident-alerts`.
-17. After alert activation, inspect Event Hubs incoming messages.
-18. Run the bounded remediation consumer.
-19. Verify it returns after the configured wait.
-20. Confirm it prints a processed count no greater than `--max-events`.
-21. Confirm it persists one remediation evidence Blob per processed event.
+16. No Azure Monitor, confirme que `aw-synthetic-pricing-failure` está habilitado, avalia a cada minuto sobre uma janela de 15 minutos, e seu Action Group tem como alvo `incident-alerts`.
+17. Após ativação do alerta, inspecione mensagens recebidas pelo Event Hubs.
+18. Execute o consumidor de remediação delimitado.
+19. Verifique que ele retorna após a espera configurada.
+20. Confirme que imprime uma contagem processada não maior que `--max-events`.
+21. Confirme que persiste um Blob de evidência de remediação por cada evento processado.
 
-The bounded lab receiver starts explicitly from the retained beginning of every partition and records a proposed containment action, but it cannot perform a production write.
+O receiver delimitado do laboratório inicia explicitamente a partir do início retido de cada partição e registra uma ação de contenção proposta, mas não pode realizar uma gravação em produção.
 
-**Reason about durable checkpoints**
+**Raciocine sobre checkpoints duráveis**
 
-22. The bounded lab receiver demonstrates safe event handling, but a production event processor should use Blob Storage checkpointing.
-23. Use one dedicated Blob checkpoint container for each Event Hubs consumer group, and place the storage account in the same Azure region as the Event Hubs namespace to reduce checkpoint latency and cross-region dependencies.
-24. Confirm that checkpoints are maintained independently per Event Hubs partition. A restart can therefore resume each partition at a different event position; if trace fragments span partitions, a partially advanced checkpoint set can produce an incomplete reconstruction until the remaining partitions catch up.
-25. Design reconstruction to tolerate duplicates, late fragments, and partition-local progress. Persist idempotent evidence before advancing the corresponding partition checkpoint.
-26. The lab uses `$Default` and writes remediation evidence rather than reconstructing traces from the alert stream. If you add a checkpoint store, provision a dedicated container for `$Default`; if you add another consumer group, give it a different checkpoint container. See [Troubleshoot Blob Storage checkpoint store issues](https://learn.microsoft.com/azure/event-hubs/troubleshoot-checkpoint-store-issues) and [Partition load balancing for event processing](https://learn.microsoft.com/azure/event-hubs/event-processor-balance-partition-load).
+22. O receiver delimitado do laboratório demonstra tratamento seguro de eventos, mas um processador de eventos de produção deve usar checkpointing no Blob Storage.
+23. Use um container de checkpoint Blob dedicado para cada Event Hubs consumer group, e coloque a storage account na mesma região Azure do namespace Event Hubs para reduzir latência de checkpoint e dependências cross-region.
+24. Confirme que checkpoints são mantidos de forma independente por partição do Event Hubs. Um reinício pode, portanto, retomar cada partição em uma posição de evento diferente; se fragmentos de trace atravessarem partições, um conjunto de checkpoints parcialmente avançado pode produzir uma reconstrução incompleta até que as partições restantes alcancem o mesmo ponto.
+25. Projete a reconstrução para tolerar duplicatas, fragments tardios e progresso local por partição. Persista evidência idempotente antes de avançar o checkpoint da partição correspondente.
+26. O lab usa `$Default` e grava evidência de remediação em vez de reconstruir traces a partir do stream de alertas. Se você adicionar um checkpoint store, provisione um container dedicado para `$Default`; se adicionar outro consumer group, dê a ele um container de checkpoint diferente. Veja [Troubleshoot Blob Storage checkpoint store issues](https://learn.microsoft.com/azure/event-hubs/troubleshoot-checkpoint-store-issues) e [Partition load balancing for event processing](https://learn.microsoft.com/azure/event-hubs/event-processor-balance-partition-load).
 
-**Validate the postmortem**
+**Valide o postmortem**
 
-27. Open the generated postmortem and its matching Blob in `incident-reports`.
-28. Confirm that its root-cause statement uses the highest-priority supported causal statement, cites its observed predicate values, and includes prompt-match, failed-step, and tool-response replay metrics.
-29. Confirm that it never infers cause from a hypothesis ID or event name.
+27. Abra o postmortem gerado e seu Blob correspondente em `incident-reports`.
+28. Confirme que a declaração de causa raiz usa a afirmação causal suportada de maior prioridade, cita seus valores de predicado observados, e inclui métricas de prompt-match, passos falhos e resposta de ferramenta do replay.
+29. Confirme que ele nunca infere causa a partir de um ID de hipótese ou nome de evento.
 
-**Validate the Azure resources**
+**Valide os recursos Azure**
 
-30. In the Azure portal, validate only the provisioned Log Analytics workspace, Application Insights component, Storage account and two Blob containers, Event Hubs namespace and hub, scheduled query rule, and Action Group.
+30. No portal do Azure, valide apenas o Log Analytics workspace provisionado, o componente Application Insights, a storage account e dois containers Blob, o namespace e hub do Event Hubs, a scheduled query rule e o Action Group.
 
-No Foundry project or model is provisioned in this lab.
+Nenhum projeto Foundry ou modelo é provisionado neste laboratório.
 
-**Review objective coverage**
+**Revise a cobertura de objetivos**
 
-| Objective | Required evidence | Passing outcome |
+| Objetivo | Evidência necessária | Resultado esperado |
 |---|---|---|
-| Query traces and latency | Candidate, detail, and cohort query results | Both synthetic outcomes appear and the selected trace preserves span relationships. |
-| Capture replay artifacts | Schema-valid local and Blob snapshots | Required versions, hashes, spans, and synthetic mocks are present; sensitive content is absent. |
-| Test competing hypotheses | Hypothesis result report | Every predicate is supported, contradicted, or explicitly missing. |
-| Connect detection through postmortem | Alert, remediation evidence, replay, and report | Processing is bounded, side effects remain disabled, and causal claims cite observed evidence. |
+| Consultar traces e latência | Resultados das consultas candidato, detalhe e coorte | Ambos os resultados sintéticos aparecem e o trace selecionado preserva as relações entre spans. |
+| Capturar artefatos de replay | Snapshots locais e no Blob válidos conforme o schema | Versões requeridas, hashes, spans e mocks sintéticos estão presentes; conteúdo sensível está ausente. |
+| Testar hipóteses concorrentes | Relatório de resultados de hipótese | Todo predicado é suportado, contradito ou explicitamente ausente. |
+| Conectar detecção através do postmortem | Alerta, evidência de remediação, replay e relatório | O processamento é limitado, efeitos colaterais permanecem desativados, e afirmações causais citam evidência observada. |
 
-## Optional challenge: Falsify a competing hypothesis
+## Desafio opcional: Falsificar uma hipótese concorrente
 
-Add a competing hypothesis that explains one symptom but not the complete trace.
+Adicione uma hipótese concorrente que explique um sintoma, mas não o trace completo.
 
-**Expected output:** The postmortem ranks the supported hypothesis first and cites the observation that falsifies the alternative.
+**Saída esperada:** O postmortem ranqueia a hipótese suportada em primeiro lugar e cita a observação que falsifica a alternativa.
 
-**Failure investigation:** Add a misleading synthetic symptom and use the three KQL stages to isolate the actual failure mechanism.
-## Task 7: Review the design
+**Investigação de falha:** Adicione um sintoma sintético enganoso e use as três etapas KQL para isolar o verdadeiro mecanismo de falha.
 
-1. Answer these questions:
+## Tarefa 7: Revisar o design
 
-- Which observable failure differed most between successful and failed cohorts?
-- What evidence would falsify your leading hypothesis?
-- Which preventive action changes the system rather than only treating the symptom?
+1. Responda a estas perguntas:
 
-## Task 8: Clean up
+- Qual falha observável diferiu mais entre as coortes bem-sucedidas e com falha?
+- Qual evidência falsificaria sua hipótese principal?
+- Qual ação preventiva altera o sistema em vez de apenas tratar o sintoma?
 
-**Remove Azure resources**
+## Tarefa 8: Limpeza
 
-1. Run `azd down --purge`.
-2. Confirm Application Insights, Log Analytics, and Storage are deleted.
-3. Remove `.env` plus generated snapshots unless your instructor requires them.
+**Remova recursos Azure**
 
-**Deactivate the virtual environment**
+1. Execute `azd down --purge`.
+2. Confirme que Application Insights, Log Analytics e Storage foram deletados.
+3. Remova `.env` além dos snapshots gerados, a menos que seu instrutor os exija.
 
-4. Run this command in every terminal where `(.venv)` appears in the prompt:
+**Desative o ambiente virtual**
+
+4. Execute este comando em todo terminal onde `(.venv)` aparece no prompt:
 
 ```powershell
 deactivate
 ```
 
-5. Confirm that `(.venv)` no longer appears before changing to another lab directory.
+5. Confirme que `(.venv)` não aparece mais antes de mudar para outro diretório de laboratório.
 
-## Summary
+## Sumário
 
-You diagnosed a multi-agent incident from Application Insights evidence, preserved a safe replay snapshot, tested competing hypotheses, and produced an evidence-linked blameless postmortem.
+Você diagnosticou um incidente multiagente a partir de evidência do Application Insights, preservou um snapshot de replay seguro, testou hipóteses concorrentes e produziu um postmortem sem atribuição de culpa baseado em evidências.

@@ -1,48 +1,49 @@
 ---
 lab:
-  title: 'Trace multi-agent workflows with OpenTelemetry'
-  description: 'Create correlated OpenTelemetry spans, W3C context propagation, structured logs, anomaly signals, and Azure Monitor evidence for Adventure Works agents.'
+  title: 'Rastreie fluxos de trabalho multiagente com OpenTelemetry'
+  description: 'Crie spans correlacionados OpenTelemetry, propagação de contexto W3C, logs estruturados, sinais de anomalia e evidência no Azure Monitor para agentes Adventure Works.'
   duration: 45
   level: 400
   islab: true
   status: 'released'
+layout: default
 ---
 
-# Trace multi-agent workflows with OpenTelemetry
+# Rastreie fluxos de trabalho multiagente com OpenTelemetry
 
-## Customer scenario
+## Cenário do cliente
 
-Adventure Works operates a customer intelligence platform whose router, recommendation, and inventory agents cross service boundaries. Operators need one trace waterfall, privacy-aware decision logs, latency evidence, and alerts that identify the responsible agent before customers report failures.
+A Adventure Works opera uma plataforma de inteligência do cliente cujos agentes router, recommendation e inventory atravessam limites de serviço. Os operadores precisam de uma única waterfall de trace, logs de decisão com privacidade, evidência de latência e alertas que identifiquem o agente responsável antes que os clientes relatem falhas.
 
-## Lab scenario
+## Cenário do laboratório
 
-You will create real spans for a synthetic three-agent flow, explicitly propagate W3C `traceparent` context, activate latency, error-rate, and token anomaly policy, export queryable telemetry through Microsoft Entra authentication, and validate an Azure Monitor scheduled-query alert and action group.
+Você irá criar spans reais para um fluxo sintético de três agentes, propagar explicitamente o contexto W3C `traceparent`, ativar políticas de latência, taxa de erro e anomalia de tokens, exportar telemetria consultável através da Microsoft Entra authentication, e validar um alerta agendado do Azure Monitor (scheduled-query) e action group.
 
-By the end of this exercise, you will be able to:
+Ao final deste exercício, você será capaz de:
 
-- Create OpenTelemetry spans at agent semantic boundaries.
-- Inject and extract W3C Trace Context across agent calls.
-- Emit structured, privacy-aware logs correlated to spans.
-- Export to Application Insights and query agent health and a trace waterfall.
-- Trigger and observe an actionable alert for latency, error-rate, or token anomalies.
+- Criar spans OpenTelemetry em fronteiras semânticas de agentes.
+- Injete e extraia W3C Trace Context através de chamadas entre agentes.
+- Emitir logs estruturados e com privacidade correlacionados aos spans.
+- Exportar para Application Insights e consultar a integridade dos agentes e uma waterfall de trace.
+- Acionar e observar um alerta acionável por latência, taxa de erro ou anomalia de token.
 
-> **Important**: Application Insights and Log Analytics ingestion are billable. The lab sleeps for milliseconds and uses synthetic metadata only. Delete monitoring resources after validation.
+> **Importante**: Application Insights e Log Analytics ingestion são cobrados. O laboratório dorme por milissegundos e usa apenas metadados sintéticos. Exclua os recursos de monitoramento após a validação.
 
-## Task 1: Prepare the lab
+## Tarefa 1: Prepare o laboratório
 
-1. Install [Python 3.10+](https://www.python.org/downloads/), [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd), [Visual Studio Code](https://code.visualstudio.com/download) with the [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python) extension, and [Bicep](https://learn.microsoft.com/azure/azure-resource-manager/bicep/install).
-2. Use an identity with permission to create monitoring resources and assign `Monitoring Metrics Publisher`.
-3. Use only the included synthetic scenario.
-4. Never put prompts, personal identifiers, payment data, or credentials into logs or span attributes.
+1. Instale [Python 3.10+](https://www.python.org/downloads/), [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd), [Visual Studio Code](https://code.visualstudio.com/download) com a extensão [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python) e [Bicep](https://learn.microsoft.com/azure/azure-resource-manager/bicep/install).
+2. Use uma identidade com permissão para criar recursos de monitoramento e atribuir `Monitoring Metrics Publisher`.
+3. Use apenas o cenário sintético incluído.
+4. Nunca coloque prompts, identificadores pessoais, dados de pagamento ou credenciais em logs ou atributos de span.
 
-5. If you haven't already done so, clone the [lab source repository](https://github.com/MicrosoftLearning/mslearn-ai-multi-agents/tree/main), or fork the repository and clone your fork:
+5. Se você ainda não fez, clone o [repositório fonte do laboratório](https://github.com/MicrosoftLearning/mslearn-ai-multi-agents/tree/main), ou faça fork do repositório e clone seu fork:
 
 ```console
 git clone https://github.com/MicrosoftLearning/mslearn-ai-multi-agents.git
 ```
 
-6. Open the cloned repository in Visual Studio Code.
-7. Validate the required tools, credentials, and active subscription from the VS Code terminal:
+6. Abra o repositório clonado no Visual Studio Code.
+7. Valide as ferramentas necessárias, as credenciais e a assinatura ativa a partir do terminal do VS Code:
 
 ```powershell
 cd Allfiles\13-adventure-works-distributed-observability
@@ -52,32 +53,32 @@ python --version
 az account show --output table
 ```
 
-**Architecture checkpoint**
+**Ponto de verificação de arquitetura**
 
-Review `src/telemetry.py`, `config/telemetry-policy.yaml`, `assets/trace-scenario.json`, `kql/anomaly-alert.kql`, and `infra/main.bicep`. The lab export ratio is `1.0` so one learner run produces a complete waterfall; the policy separately records a `0.05` production head-sampling example for design discussion. Before continuing, confirm that `traceparent` flows across all three agents and that flattened latency, token, and error-rate decisions are queryable by the scheduled alert.
+Revise `src/telemetry.py`, `config/telemetry-policy.yaml`, `assets/trace-scenario.json`, `kql/anomaly-alert.kql` e `infra/main.bicep`. A razão de exportação do laboratório é `1.0` de modo que uma execução do aluno produz uma waterfall completa; a política registra separadamente um exemplo de head-sampling de produção `0.05` para discussão de design. Antes de continuar, confirme que `traceparent` flui por todos os três agentes e que decisões flattenadas de latência, token e taxa de erro são consultáveis pelo alerta agendado.
 
-## Task 2: Build the virtual environment
+## Tarefa 2: Construa o ambiente virtual
 
-1. On Windows, run:
+1. No Windows, execute:
 
 ```powershell
 ./scripts/setup.ps1
 . ./.venv/Scripts/Activate.ps1
 ```
 
-> On macOS/Linux, run `bash scripts/setup.sh` and `source .venv/bin/activate` instead.
+> No macOS/Linux, execute `bash scripts/setup.sh` e `source .venv/bin/activate` em vez disso.
 
-2. Review `config/telemetry-policy.yaml`.
-3. Confirm prohibited fields are absent from `assets/trace-scenario.json`.
+2. Revise `config/telemetry-policy.yaml`.
+3. Confirme que campos proibidos estão ausentes de `assets/trace-scenario.json`.
 
-## Task 3: Deploy Azure resources
+## Tarefa 3: Implemente os recursos do Azure
 
-1. Before provisioning with `azd`, check monitoring role access and costs for Log Analytics ingestion and retention, Application Insights, scheduled-query alerts, and action groups.
+1. Antes de provisionar com `azd`, verifique o acesso ao papel de monitoramento e os custos para Log Analytics ingestion e retention, Application Insights, scheduled-query alerts e action groups.
 
-2. Set `$azureRegion` to an approved region that supports the required services.
-3. Replace the example value `eastus2` if needed.
-> **Resource group:** If your lab environment provides a precreated resource group, set `$resourceGroupName` to its name. Otherwise, leave `$resourceGroupName` empty so the script creates a unique resource group in your subscription.
-4. Run the following commands:
+2. Defina `$azureRegion` para uma região aprovada que suporte os serviços necessários.
+3. Substitua o valor de exemplo `eastus2` se necessário.
+> **Resource group:** Se seu ambiente de laboratório fornecer um resource group pré-criado, defina `$resourceGroupName` com seu nome. Caso contrário, deixe `$resourceGroupName` vazio para que o script crie um resource group único na sua assinatura.
+4. Execute os seguintes comandos:
 
 ```powershell
 $azureRegion = 'eastus2'
@@ -95,32 +96,32 @@ azd provision
 azd env get-values | Out-File .env -Encoding utf8
 ```
 
-> Note: If provisioning fails, inspect the first Azure deployment error. Regional monitoring availability, invalid alert email, policy restrictions, and role-assignment permissions are common causes. Correct the cause, then run `azd provision` again.
+> Observação: Se o provisionamento falhar, inspecione o primeiro erro de implantação do Azure. Disponibilidade regional de monitoramento, e-mail inválido no alerta, restrições de política e permissões de atribuição de função são causas comuns. Corrija a causa e execute `azd provision` novamente.
 
-The scheduled-query rule uses a typed, empty fallback and skips deployment-time query validation because a new workspace does not expose the `AppTraces` table until its first telemetry arrives. The fallback returns no rows; Azure evaluates the real `AppTraces` signals normally after ingestion begins.
+A regra scheduled-query usa um fallback tipado e vazio e pula a validação de query em tempo de implantação porque um workspace novo não expõe a tabela `AppTraces` até que sua primeira telemetria chegue. O fallback retorna nenhuma linha; o Azure avalia os sinais reais `AppTraces` normalmente após o início da ingestão.
 
-5. After provisioning succeeds, validate that `.env` includes the Application Insights connection string, `APPLICATIONINSIGHTS_RESOURCE_ID`, the Log Analytics workspace ID, identity client ID, and alert resource IDs.
-6. Confirm that it contains no token or key. The Bicep identity receives `Monitoring Metrics Publisher` for deployed execution.
-7. For local live validation, assign your signed-in development identity the same role on `APPLICATIONINSIGHTS_RESOURCE_ID`.
-8. Do not enable local-key ingestion.
-9. Confirm the action group subscription email before expecting notifications.
+5. Após o provisionamento ser bem-sucedido, valide que `.env` inclua a connection string do Application Insights, `APPLICATIONINSIGHTS_RESOURCE_ID`, o ID do Log Analytics workspace, client ID da identidade e os IDs de recurso do alerta.
+6. Confirme que não contém nenhum token ou chave. A identidade Bicep recebe `Monitoring Metrics Publisher` para execução implantada.
+7. Para validação local ao vivo, atribua à sua identidade de desenvolvimento logada a mesma função em `APPLICATIONINSIGHTS_RESOURCE_ID`.
+8. Não habilite ingestão com chave local.
+9. Confirme o e-mail do action group antes de esperar por notificações.
 
-## Task 4: Implement the solution
+## Tarefa 4: Implemente a solução
 
-Each placeholder marks incomplete code. Copy each supplied snippet into its placeholder location, keep the `LAB PLACEHOLDER` comment, replace only the indicated incomplete line or block, and preserve the surrounding indentation.
+Cada placeholder marca código incompleto. Copie cada trecho fornecido para sua localização placeholder, mantenha o comentário `LAB PLACEHOLDER`, substitua somente a linha ou bloco incompleto indicado e preserve a indentação ao redor.
 
-> **Tip:** After you copy and paste each Python snippet, validate its indentation against the surrounding function or class before running the code.
+> **Dica:** Depois de copiar e colar cada snippet Python, valide sua indentação em relação à função ou classe circundante antes de executar o código.
 
-**Inject the active trace context**
+**Injetar o contexto de trace ativo**
 
-1. Open `src/telemetry.py` and find **LAB PLACEHOLDER 1** in `build_next_carrier`:
+1. Abra `src/telemetry.py` e encontre **LAB PLACEHOLDER 1** em `build_next_carrier`:
 
 ```python
 # LAB PLACEHOLDER 1: Replace this line with the Task 1 sample.
 raise NotImplementedError("Complete build_next_carrier in Task 1")
 ```
 
-2. Replace only the `raise NotImplementedError` line beneath it with this code:
+2. Substitua somente a linha `raise NotImplementedError` logo abaixo por este código:
 
 ```python
 carrier: dict[str, str] = {}
@@ -128,19 +129,19 @@ propagator.inject(carrier)
 return carrier
 ```
 
-The propagator serializes the active context into `traceparent`. `execute_agent` extracts it before `start_as_current_span`, making the next agent a child in the same trace.
+O propagador serializa o contexto ativo em `traceparent`. `execute_agent` o extrai antes de `start_as_current_span`, fazendo com que o próximo agente seja filho no mesmo trace.
 
-**Review structured decision telemetry**
+**Revise a telemetria de decisão estruturada**
 
-3. Inspect `_structured_log` and `execute_agent`. Both surfaces include `gen_ai.operation.name`, `gen_ai.agent.name`, `gen_ai.agent.id`, `gen_ai.provider.name`, `gen_ai.conversation.id`, `gen_ai.usage.input_tokens`, and `gen_ai.usage.output_tokens`; failed spans and logs also include `error.type`.
-4. List the domain-specific attributes retained alongside the semantic attributes: `agent.version`, latency, anomaly flags, policy status, and the hashed session ID. Semantic conventions improve interoperability; they do not replace useful bounded business telemetry.
-5. Do not add raw request text or model reasoning. The conversation ID in this synthetic scenario is noncustomer test data; apply your organization's identifier policy before using the same attribute with production conversations.
-6. Inspect `execute_agent`.
-7. Identify the three policy decisions: latency uses a strict threshold, token anomaly uses the scenario mean plus the configured sigma multiple, and chain error rate is calculated after all agents complete. These decisions remain parameterized in `config/telemetry-policy.yaml`.
+3. Inspecione `_structured_log` e `execute_agent`. Ambos exibem `gen_ai.operation.name`, `gen_ai.agent.name`, `gen_ai.agent.id`, `gen_ai.provider.name`, `gen_ai.conversation.id`, `gen_ai.usage.input_tokens` e `gen_ai.usage.output_tokens`; spans e logs com falha também incluem `error.type`.
+4. Liste os atributos específicos do domínio retidos ao lado dos atributos semânticos: `agent.version`, latency, anomaly flags, policy status e o hashed session ID. Convenções semânticas melhoram a interoperabilidade; elas não substituem telemetria útil e limitada ao negócio.
+5. Não adicione texto de requisição cru nem raciocínio de modelo. O conversation ID neste cenário sintético é dado de teste não relacionado a clientes; aplique a política de identificador da sua organização antes de usar o mesmo atributo com conversas de produção.
+6. Inspecione `execute_agent`.
+7. Identifique as três decisões de política: latência usa um limiar estrito, anomalia de token usa a média do cenário mais o múltiplo de sigma configurado, e a taxa de erro da cadeia é calculada após todos os agentes completarem. Essas decisões permanecem parametrizadas em `config/telemetry-policy.yaml`.
 
-**Check the completed code**
+**Verifique o código concluído**
 
-8. Run the following checks:
+8. Execute as seguintes checagens:
 
 ```powershell
 python -m py_compile src/main.py src/telemetry.py scripts/preflight.py
@@ -148,94 +149,95 @@ python scripts/preflight.py
 Select-String -Path src/telemetry.py -Pattern 'NotImplementedError'
 ```
 
-Preflight must end with `READY (local)`, and the final command must return no matches. Azure Monitor configuration can remain `INFO` for the console-only run.
+O preflight deve terminar com `READY (local)`, e o comando final deve retornar nenhuma correspondência. A configuração do Azure Monitor pode permanecer `INFO` para a execução apenas no console.
 
-## Task 5: Run the solution
+## Tarefa 5: Execute a solução
 
-1. Temporarily leave the Azure Monitor connection string blank.
-2. Run `python -m src.main`.
-3. Inspect the console span JSON.
-4. Confirm three unique span IDs share one 32-character trace ID and form a parent-child chain. The recommendation span contains latency and token anomaly events: 85 ms exceeds 60 ms, and 516 tokens exceed the `350 + (3 x 50) = 500` token boundary. The inventory error produces a chain error rate of `1/3`, above 0.05.
+1. Temporariamente deixe a connection string do Azure Monitor em branco.
+2. Execute `python -m src.main`.
+3. Inspecione o JSON do span no console.
+4. Confirme que três IDs de span únicos compartilham um único trace ID de 32 caracteres e formam uma cadeia pai-filho. O span de recommendation contém eventos de latência e anomalia de token: 85 ms excede 60 ms, e 516 tokens excedem o limite de token `350 + (3 x 50) = 500`. O erro de inventory produz uma chain error rate de `1/3`, acima de 0.05.
 
-5. Restore the Azure Monitor connection string.
-6. Run the command again. The command writes `evidence/trace-evidence.json` and exports spans and logs.
-7. Record the printed trace ID.
+5. Restaure a connection string do Azure Monitor.
+6. Execute o comando novamente. O comando grava `evidence/trace-evidence.json` e exporta spans e logs.
+7. Registre o trace ID impresso.
 
-**Understand the output**
+**Entenda a saída**
 
-`correlation_complete: true` means all three records share one trace ID. `span_count: 3` is the number of agent semantic spans, not every SDK or exporter span. `anomalies` names agents whose status is not success. `error_rate` is the observed chain error fraction, while `error_rate_anomaly` is the policy comparison result.
+`correlation_complete: true` significa que os três registros compartilham o mesmo trace ID. `span_count: 3` é o número de agent semantic spans, não de cada span do SDK ou exporter. `anomalies` nomeia agentes cujo status não é success. `error_rate` é a fração observada de erro da cadeia, enquanto `error_rate_anomaly` é o resultado da comparação da política.
 
-The default `records` exercise all three signals: recommendation latency and tokens, plus the inventory error that produces a chain error rate of approximately 0.3333.
+O exercício padrão `records` exercita todos os três sinais: latência e tokens da recommendation, mais o erro de inventory que produz uma chain error rate de aproximadamente 0.3333.
 
-## Task 6: Validate the implementation
+## Tarefa 6: Valide a implementação
 
-1. Open the Application Insights **Agents (Preview)** view as the built-in baseline. Use it to inspect per-agent requests, latency, token usage, errors, and individual agent details when the emitted semantic attributes are recognized. See [Monitor AI agents with Application Insights](https://learn.microsoft.com/azure/azure-monitor/app/agents-view).
-2. Open Application Insights **Transaction search**.
-3. Find the recorded trace ID and inspect the transaction details waterfall.
-4. Confirm router, recommendation, and inventory appear under one operation.
-5. Open **Logs**.
-6. Paste the trace ID into `kql/trace-waterfall.kql` and run it.
-7. Run `kql/agent-health.kql` and verify recommendation has the highest P95 latency and a token anomaly, while inventory has error status. Treat these custom queries and dashboards as extensions for domain policy and cross-agent analysis, not replacements for the built-in Agents view.
+1. Abra a visualização Application Insights **Agentes (Preview)** como baseline embutida. Use-a para inspecionar requests por agente, latência, uso de tokens, erros e detalhes de agente individuais quando os atributos semânticos emitidos são reconhecidos. Veja [Monitor AI agents with Application Insights](https://learn.microsoft.com/azure/azure-monitor/app/agents-view).
+2. Abra Application Insights **Busca de transações (Transaction search)**.
+3. Encontre o trace ID registrado e inspecione os detalhes da transaction waterfall.
+4. Confirme que router, recommendation e inventory aparecem sob uma única operação.
+5. Abra **Logs**.
+6. Cole o trace ID em `kql/trace-waterfall.kql` e execute.
+7. Execute `kql/agent-health.kql` e verifique que recommendation tem a maior latência P95 e uma anomalia de token, enquanto inventory tem status de erro. Trate essas queries e dashboards customizados como extensões para política de domínio e análise entre agentes, não como substitutos da visualização Agents embutida.
 
-8. Validate each active setting independently and restore the asset after each run:
+8. Valide cada configuração ativa de forma independente e restaure o ativo após cada execução:
 
-9. Set recommendation latency to exactly 60 ms and output tokens to 80.
-10. Confirm neither boundary is anomalous because both comparisons use greater-than.
-11. Restore output tokens to 96 and confirm the token anomaly returns while latency remains at 60 ms.
-12. Set every `error` field to `false` and confirm `error_rate_anomaly` is false.
-13. Restore the inventory error.
-14. Change `latency_threshold_ms`, `error_rate_threshold`, and `token_anomaly_sigma` in the YAML one at a time and confirm runtime decisions change without editing KQL.
+9. Defina a latência de recommendation exatamente para 60 ms e tokens de saída para 80.
+10. Confirme que nenhum dos limites é anômalo porque ambas as comparações usam greater-than.
+11. Restaure tokens de saída para 96 e confirme que a anomalia de token retorna enquanto a latência permanece em 60 ms.
+12. Defina todos os campos `error` para `false` e confirme que `error_rate_anomaly` é false.
+13. Restaure o erro de inventory.
+14. Altere `latency_threshold_ms`, `error_rate_threshold` e `token_anomaly_sigma` no YAML um por vez e confirme que decisões em runtime mudam sem editar KQL.
 
-15. Inspect the provisioned resources:
+15. Inspecione os recursos provisionados:
 
 ```console
 az monitor action-group show --ids <ANOMALY_ACTION_GROUP_ID> --query "{enabled:enabled,receivers:emailReceivers[].emailAddress}"
 az monitor scheduled-query show --ids <ANOMALY_ALERT_RULE_ID> --query "{enabled:enabled,severity:severity,frequency:evaluationFrequency,actions:actions.actionGroups}"
 ```
 
-16. Run the restored default scenario with Azure export enabled.
-17. After ingestion and the next five-minute evaluation, open Azure Monitor **Alerts**.
-18. Filter by the scheduled-query rule.
-19. Confirm that a fired severity-2 alert links to the workspace that stores the Application Insights telemetry and to the action group.
-20. Confirm the email uses the common alert schema.
-21. Run a no-anomaly scenario and observe auto-mitigation after the configured five-minute healthy period.
-22. Capture the Agents view baseline, waterfall, correlated property rows, three policy decisions, rule/action linkage, fired alert, notification, and resolved state as live evidence.
+16. Execute o cenário padrão restaurado com exportação para Azure habilitada.
+17. Após a ingestão e a próxima avaliação de cinco minutos, abra Azure Monitor **Alerts**.
+18. Filtre pela regra scheduled-query.
+19. Confirme que um alerta fired de severidade-2 está vinculado ao workspace que armazena a telemetria do Application Insights e ao action group.
+20. Confirme que o e-mail usa o common alert schema.
+21. Execute um cenário sem anomalia e observe a mitigação automática após o período saudável configurado de cinco minutos.
+22. Capture a baseline da visualização Agents, a waterfall, linhas de propriedade correlacionadas, as três decisões de política, ligação regra/ação, alerta disparado, notificação e estado resolvido como evidência ao vivo.
 
-## Optional challenge: Add a cross-agent attribute
+## Desafio opcional: Adicione um atributo cross-agent
 
-Add a synthetic request-classification span attribute and propagate it through the chain.
+Adicione um atributo sintético de classificação de requisição (request-classification) e propague-o pela cadeia.
 
-**Expected output:** The value appears on the correlated agent spans and can be selected in KQL without exposing request content.
+Resultado esperado: O valor aparece nos spans correlacionados dos agentes e pode ser selecionado em KQL sem expor o conteúdo da requisição.
 
-**Failure investigation:** Break context propagation at one handoff and locate the first span that leaves the original trace.
-## Task 7: Review the design
+Investigação de falha: Quebre a propagação de contexto em uma das passagens e localize o primeiro span que sai do trace original.
 
-1. Answer these questions:
+## Tarefa 7: Revise o design
 
-- What breaks when context injection is omitted at one boundary?
-- Which structured fields are useful without exposing customer content?
-- Why would errors and slow traces require collector-side tail sampling rather than the head-sampling ratio used by this lab?
-- How would you correlate simultaneous anomalies into one incident?
-- Why does the alert consume emitted policy decisions instead of repeating thresholds in KQL?
+1. Responda a estas perguntas:
 
-## Task 8: Clean up
+- O que quebra quando a injeção de contexto é omitida em uma fronteira?
+- Quais campos estruturados são úteis sem expor conteúdo do cliente?
+- Por que erros e traces lentos exigiriam tail sampling no collector em vez da razão de head-sampling usada por este laboratório?
+- Como você correlacionaria anomalias simultâneas em um único incidente?
+- Por que o alerta consome decisões de política emitidas em vez de repetir thresholds em KQL?
 
-**Remove Azure resources**
+## Tarefa 8: Limpeza
 
-1. Run `azd down --purge`.
-2. Confirm the workspace and Application Insights resource are deleted.
-3. Remove `.env` and local evidence. Leaving telemetry export active continues ingestion charges.
+**Remova recursos do Azure**
 
-**Deactivate the virtual environment**
+1. Execute `azd down --purge`.
+2. Confirme que o workspace e o recurso Application Insights foram deletados.
+3. Remova `.env` e evidência local. Deixar a exportação de telemetria ativa continua gerando custos de ingestão.
 
-4. Run this command in every terminal where `(.venv)` appears in the prompt:
+**Desative o ambiente virtual**
+
+4. Execute este comando em todo terminal onde `(.venv)` apareça no prompt:
 
 ```powershell
 deactivate
 ```
 
-5. Confirm that `(.venv)` no longer appears before changing to another lab directory.
+5. Confirme que `(.venv)` não aparece mais antes de mudar para outro diretório de laboratório.
 
-## Summary
+## Resumo
 
-You created real OpenTelemetry spans, propagated W3C context, activated latency, error-rate, and token anomaly policy, exported queryable properties through secure Azure Monitor configuration, and validated an actionable scheduled-query alert lifecycle.
+Você criou spans OpenTelemetry reais, propagou W3C context, ativou políticas de latência, taxa de erro e anomalia de token, exportou propriedades consultáveis através de configuração segura do Azure Monitor e validou o ciclo de vida de um alerta acionável scheduled-query.

@@ -1,53 +1,54 @@
 ---
 lab:
-  title: 'Implement durable human approval workflows'
-  description: 'Build a resumable Adventure Works approval workflow with calibrated escalation, Service Bus events, Cosmos DB state, and immutable audit evidence.'
+  title: 'Implementar fluxos de trabalho de aprovação humana duráveis'
+  description: 'Construa um workflow de aprovação resumível para Adventure Works com escalonamento calibrado, eventos do Service Bus, estado no Cosmos DB e evidência de auditoria imutável.'
   duration: 45
   level: 400
   islab: true
   status: 'released'
+layout: default
 ---
 
-# Implement durable human approval workflows
+# Implementar fluxos de trabalho de aprovação humana duráveis
 
-## Customer scenario
+## Cenário do cliente
 
-Adventure Works agents can recommend refunds and policy exceptions, but high-impact actions must pause for meaningful human review. An in-memory pending flag is not sufficient: approval can take hours, processes restart, duplicate decisions arrive, and overdue work must escalate without losing history.
+Agentes da Adventure Works podem recomendar reembolsos e exceções de política, mas ações de alto impacto devem pausar para uma revisão humana significativa. Uma flag pendente em memória não é suficiente: aprovações podem levar horas, processos reiniciam, decisões duplicadas chegam e trabalhos vencidos devem escalar sem perder o histórico.
 
-## Lab scenario
+## Cenário do laboratório
 
-You will implement a durable approval state machine. Cosmos DB stores current workflow state and append-only audit events. Service Bus carries approval requests and reviewer decisions. The CLI submits work, receives approve or reject events, resumes exactly once with optimistic concurrency, and escalates expired approvals.
+Você implementará uma máquina de estados de aprovação durável. O Cosmos DB armazena o estado atual do workflow e eventos de auditoria em append-only. O Service Bus transporta solicitações de aprovação e decisões dos revisores. O CLI submete trabalho, recebe eventos de aprovar ou rejeitar, retoma exatamente uma vez com concorrência otimista e escala aprovações expiradas.
 
-<!-- LAB DIAGRAM PLACEHOLDER: Show request submission, risk decision, durable pending state, Service Bus review events, resume processing, and audit evidence. -->
+<!-- ESPAÇO RESERVADO PARA DIAGRAMA DO LAB: Mostrar submissão de solicitação, decisão de risco, estado pendente durável, eventos de revisão do Service Bus, retomada do processamento e evidência de auditoria. -->
 
-By the end of this exercise, you will be able to:
+Ao final deste exercício, você será capaz de:
 
-- Combine calibrated confidence, business impact, exceptions, and ambiguity into escalation decisions.
-- Persist approval state outside the process and resume after restart.
-- Handle approve, reject, duplicate, and overdue paths safely.
-- Produce structured feedback and immutable audit evidence.
+- Combinar confiança calibrada, impacto de negócio, exceções e ambiguidade em decisões de escalonamento.
+- Persistir o estado de aprovação fora do processo e retomar após reinício.
+- Tratar caminhos de aprovar, rejeitar, duplicado e vencido com segurança.
+- Produzir feedback estruturado e evidência de auditoria imutável.
 
-> **Important**: Cosmos DB and Service Bus are billable. The synthetic payloads contain no customer PII. Do not place connection strings or keys in `.env`.
+> **Importante**: Cosmos DB e Service Bus são cobráveis. As cargas sintéticas não contêm PII de clientes. Não coloque strings de conexão ou chaves em `.env`.
 
-## Task 1: Prepare the lab
+## Tarefa 1: Preparar o laboratório
 
-1. Install [Python 3.10 or later](https://www.python.org/downloads/), [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd), and [Bicep](https://learn.microsoft.com/azure/azure-resource-manager/bicep/install).
+1. Instale [Python 3.10 ou posterior](https://www.python.org/downloads/), [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd) e [Bicep](https://learn.microsoft.com/azure/azure-resource-manager/bicep/install).
 
-You need an Azure subscription and permission to create Cosmos DB, Service Bus, and role assignments. Use your signed-in identity through `DefaultAzureCredential`.
+Você precisa de uma assinatura do Azure e permissão para criar Cosmos DB, Service Bus e atribuições de função. Use sua identidade autenticada via `DefaultAzureCredential`.
 
-**Clone and open the repository**
+**Clonar e abrir o repositório**
 
-2. If you haven't already done so, clone the [lab source repository](https://github.com/MicrosoftLearning/mslearn-ai-multi-agents/tree/main), or fork the repository and clone your fork:
+2. Se você ainda não fez isso, clone o [repositório de origem do laboratório](https://github.com/MicrosoftLearning/mslearn-ai-multi-agents/tree/main), ou faça um fork e clone seu fork:
 
 ```console
 git clone https://github.com/MicrosoftLearning/mslearn-ai-multi-agents.git
 ```
 
-3. Open the cloned repository in Visual Studio Code.
+3. Abra o repositório clonado no Visual Studio Code.
 
-**Verify tools and authentication**
+**Verificar ferramentas e autenticação**
 
-4. Validate the required tools, credentials, and active subscription from the VS Code terminal:
+4. Valide as ferramentas necessárias, credenciais e assinatura ativa a partir do terminal do VS Code:
 
 ```powershell
 cd Allfiles\16-adventure-works-human-approval
@@ -57,39 +58,39 @@ python --version
 az account show --output table
 ```
 
-**Architecture checkpoint**
+**Ponto de verificação da arquitetura**
 
-Review `infra/main.bicep`, the synthetic refund request, `assets/workflow-state.schema.json`, `assets/adaptive-card.json`, `src/workflow.py`, and `src/reviewer_webhook.py`. Before continuing, confirm that a high-risk request moves from calibrated risk to durable pending state, authenticated reviewer submission, exactly-once resume processing, and idempotent audit evidence.
+Revise `infra/main.bicep`, a solicitação sintética de reembolso `assets/workflow-state.schema.json`, `assets/adaptive-card.json`, `src/workflow.py` e `src/reviewer_webhook.py`. Antes de continuar, confirme que uma solicitação de alto risco se move de risco calibrado para estado pendente durável, envio autenticado do revisor, retomada exatamente-uma vez e evidência de auditoria idempotente.
 
-## Task 2: Build the virtual environment
+## Tarefa 2: Construir o ambiente virtual
 
-1. On Windows, create and activate the virtual environment:
+1. No Windows, crie e ative o ambiente virtual:
 
 ```powershell
 ./scripts/setup.ps1
 . ./.venv/Scripts/Activate.ps1
 ```
 
-> On macOS/Linux, run `bash scripts/setup.sh` and `source .venv/bin/activate` instead.
+> No macOS/Linux, execute `bash scripts/setup.sh` e `source .venv/bin/activate` em vez disso.
 
-## Task 3: Deploy Azure resources
+## Tarefa 3: Provisionar recursos do Azure
 
-1. Review Cosmos DB and Service Bus costs plus data-plane and messaging role access before provisioning.
-2. Use only the supplied synthetic payloads and a unique environment.
+1. Revise os custos do Cosmos DB e Service Bus, além do acesso de plano de dados e de mensagens antes de provisionar.
+2. Use apenas as cargas sintéticas fornecidas e um ambiente único.
 
-`azd` provisions infrastructure; the approval workflow runs separately.
+`azd` provisiona a infraestrutura; o workflow de aprovação roda separadamente.
 
-**Set the deployment values**
+**Definir os valores de implantação**
 
-3. Set `$azureRegion` to an approved region that supports the required services.
-4. Replace the example value `eastus2` if needed.
-> **Resource group:** If your lab environment provides a precreated resource group, set `$resourceGroupName` to its name. Otherwise, leave `$resourceGroupName` empty so the script creates a unique resource group in your subscription.
+3. Defina `$azureRegion` para uma região aprovada que suporte os serviços requeridos.
+4. Substitua o valor de exemplo `eastus2` se necessário.
+> **Grupo de recursos:** Se seu ambiente de laboratório fornece um resource group pré-criado, defina `$resourceGroupName` com seu nome. Caso contrário, deixe `$resourceGroupName` vazio para que o script crie um resource group único na sua assinatura.
 
-> **Note:** `AZURE_DEV_USER_AGENT` tags provisioning for attribution and is not exported to `.env`. Remove it afterward to avoid tagging unrelated commands.
+> **Nota:** `AZURE_DEV_USER_AGENT` marca a provisão para atribuição e não é exportado para `.env`. Remova-o depois para evitar marcar comandos não relacionados.
 
-**Validate and provision the infrastructure**
+**Validar e provisionar a infraestrutura**
 
-5. Run the following commands:
+5. Execute os seguintes comandos:
 
 ```powershell
 $azureRegion = 'eastus2'
@@ -110,23 +111,23 @@ azd env get-values | Out-File .env -Encoding utf8
 Remove-Item Env:AZURE_DEV_USER_AGENT
 ```
 
-> **Note:** If provisioning fails, inspect the first deployment error. Check Cosmos DB and Service Bus regional availability, namespace naming, principal ID, and role-assignment permissions. Correct the cause and rerun `azd provision`.
+> **Nota:** Se a provisão falhar, inspecione o primeiro erro de implantação. Verifique a disponibilidade regional do Cosmos DB e Service Bus, nomes do namespace, ID do principal e permissões de atribuição de função. Corrija a causa e execute `azd provision` novamente.
 
-**Verify the generated environment**
+**Verificar o ambiente gerado**
 
-6. After provisioning succeeds, validate that `.env` includes the Cosmos DB endpoint, database and container names, Service Bus namespace and queue names, and the principal values required by the application.
-7. Keep only endpoints and resource names; do not add connection strings, keys, or tokens.
+6. Depois que a provisão for bem-sucedida, valide que `.env` inclui o endpoint do Cosmos DB, nomes do banco de dados e do container, namespace e nomes de filas do Service Bus, e os valores do principal requeridos pela aplicação.
+7. Mantenha apenas endpoints e nomes de recursos; não adicione strings de conexão, chaves ou tokens.
 
-## Task 4: Implement the solution
+## Tarefa 4: Implementar a solução
 
-Each placeholder marks incomplete code. Copy each supplied snippet into its placeholder location, remove the `LAB PLACEHOLDER` comment, replace only the indicated incomplete line or block, and preserve the surrounding indentation.
+Cada placeholder marca código incompleto. Copie cada trecho fornecido para seu local placeholder, remova o comentário `LAB PLACEHOLDER`, substitua apenas a linha ou bloco incompleto indicado e preserve a indentação ao redor.
 
-> **Tip:** After you copy and paste each Python snippet, validate its indentation against the surrounding function or class before running the code.
+> **Dica:** Depois de colar cada trecho em Python, valide sua indentação em relação à função ou classe ao redor antes de executar o código.
 
-**Calibrate raw confidence**
+**Calibrar confiança bruta**
 
-1. In `src/workflow.py`, find `# LAB PLACEHOLDER 1`.
-2. Replace only the incomplete `calibrate_confidence()` function associated with it with:
+1. Em `src/workflow.py`, encontre `# LAB PLACEHOLDER 1`.
+2. Substitua apenas a função incompleta `calibrate_confidence()` associada por:
 
 ```python
 def calibrate_confidence(raw_confidence: float, curve_path: Path) -> float:
@@ -139,12 +140,12 @@ def calibrate_confidence(raw_confidence: float, curve_path: Path) -> float:
   return float(nearest["observed_accuracy"])
 ```
 
-Observed accuracy, rather than an uncalibrated model confidence, drives review thresholds.
+Acurácia observada, em vez de uma confiança não calibrada do modelo, dirige os limites de revisão.
 
-**Use calibrated confidence in risk assessment**
+**Usar confiança calibrada na avaliação de risco**
 
-3. Find `# LAB PLACEHOLDER 2`.
-4. Replace only the following `calibrated` assignment with:
+3. Encontre `# LAB PLACEHOLDER 2`.
+4. Substitua apenas a seguinte atribuição `calibrated` por:
 
 ```python
   calibrated = calibrate_confidence(
@@ -153,12 +154,12 @@ Observed accuracy, rather than an uncalibrated model confidence, drives review t
   )
 ```
 
-This derives confidence from the versioned curve instead of trusting a value copied into the request.
+Isso deriva a confiança a partir da curva versionada em vez de confiar em um valor copiado na solicitação.
 
-**Append immutable audit evidence**
+**Anexar evidência de auditoria imutável**
 
-5. Find `# LAB PLACEHOLDER 3`.
-6. Replace only the following `raise NotImplementedError` statement with:
+5. Encontre `# LAB PLACEHOLDER 3`.
+6. Substitua apenas a seguinte instrução `raise NotImplementedError` por:
 
 ```python
     actor_hash = hashlib.sha256(actor.encode()).hexdigest()
@@ -192,12 +193,12 @@ This derives confidence from the versioned curve instead of trusting a value cop
         )
 ```
 
-The audit record uses the event ID as its document ID. A redelivery accepts an existing record only after verifying its workflow, policy, and trace identity; conflicting evidence fails closed. The record links a transition to persisted state without storing a reviewer identity in clear text. The workflow state also stores `last_transition` in the same optimistic-concurrency write, so a failed audit replication remains detectable and recoverable.
+O registro de auditoria usa o ID do evento como seu ID de documento. Uma reentrega aceita um registro existente somente depois de verificar seu workflow, política e identidade de trace; evidência conflitante falha fechada. O registro vincula uma transição ao estado persistido sem armazenar a identidade do revisor em texto claro. O estado do workflow também armazena `last_transition` na mesma gravação de concorrência otimista, assim uma replicação de auditoria falha permanece detectável e recuperável.
 
-**Add cancellation compensation**
+**Adicionar compensação de cancelamento**
 
-7. Find `# LAB PLACEHOLDER 4`.
-8. Add this branch directly beneath it, keeping the existing final `else` block:
+7. Encontre `# LAB PLACEHOLDER 4`.
+8. Adicione este ramo diretamente abaixo dele, mantendo o bloco final `else` existente:
 
 ```python
     elif decision == "CANCELLED":
@@ -209,12 +210,12 @@ The audit record uses the event ID as its document ID. A redelivery accepts an e
       }
 ```
 
-Cancellation is a terminal, nonexecuting transition. The supplied `replace_item()` call still enforces the original ETag.
+Cancelamento é uma transição terminal, não executante. A chamada `replace_item()` fornecida ainda aplica o ETag original.
 
-**Expose cancellation through the CLI**
+**Expor cancelamento via CLI**
 
-9. In `src/main.py`, find `# LAB PLACEHOLDER 5`.
-10. Replace only the following `decide.add_argument()` call with:
+9. Em `src/main.py`, encontre `# LAB PLACEHOLDER 5`.
+10. Substitua apenas a seguinte chamada `decide.add_argument()` por:
 
 ```python
   decide.add_argument(
@@ -224,12 +225,12 @@ Cancellation is a terminal, nonexecuting transition. The supplied `replace_item(
   )
 ```
 
-The command surface and workflow state machine now accept the same decision vocabulary.
+A superfície de comando e a máquina de estados agora aceitam o mesmo vocabulário de decisões.
 
-**Escalate expired reviews durably**
+**Escalonar revisões expiradas de forma durável**
 
-11. In `src/workflow.py`, find `# LAB PLACEHOLDER 6`.
-12. Replace only the incomplete `escalate_expired()` method associated with it with:
+11. Em `src/workflow.py`, encontre `# LAB PLACEHOLDER 6`.
+12. Substitua apenas o método incompleto `escalate_expired()` associado por:
 
 ```python
   def escalate_expired(self) -> list[str]:
@@ -278,24 +279,24 @@ The command surface and workflow state machine now accept the same decision voca
     return escalated
 ```
 
-The same optimistic-concurrency and audit requirements apply to scheduler-driven transitions.
+As mesmas exigências de concorrência otimista e auditoria se aplicam a transições acionadas pelo agendador.
 
-**Check the completed code**
+**Verificar o código completado**
 
-13. Check the completed code locally:
+13. Verifique o código completado localmente:
 
 ```console
 python -m py_compile src/workflow.py src/main.py src/reviewer_webhook.py src/active_learning.py
 python scripts/preflight.py --require-complete
 ```
 
-14. Confirm that compilation returns no output.
-15. Before provisioning, confirm that preflight validates the synthetic request and schema; endpoint checks can remain `not ready`.
-16. After provisioning and `.env` setup, confirm that every check reports `ready`.
+14. Confirme que a compilação não retorna saída.
+15. Antes de provisionar, confirme que o preflight valida a solicitação sintética e o esquema; verificações de endpoint podem permanecer `not ready`.
+16. Após a provisão e configuração de `.env`, confirme que cada verificação reporte `ready`.
 
-## Task 5: Run the solution
+## Tarefa 5: Executar a solução
 
-1. Run the approval workflow commands:
+1. Execute os comandos do workflow de aprovação:
 
 ```console
 python -m src.main submit --input assets/refund-request.json
@@ -307,11 +308,11 @@ python -m src.reviewer_webhook --port 8080
 python -m src.active_learning --output reports/active-learning.jsonl --evaluation reports/active-learning-evaluation.json
 ```
 
-**Test the HTTP adapter**
+**Testar o adaptador HTTP**
 
-2. Test the HTTP adapter locally before connecting a hosted reviewer surface.
-3. Start the webhook in one terminal.
-4. Submit synthetic card data from another:
+2. Teste o adaptador HTTP localmente antes de conectar uma superfície de revisor hospedada.
+3. Inicie o webhook em um terminal.
+4. Envie os dados sintéticos do card a partir de outro:
 
 ```powershell
 $body = @{
@@ -325,88 +326,88 @@ Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:8080/api/reviewer-decision
   -ContentType 'application/json' -Body $body
 ```
 
-5. Confirm that the local response is HTTP 202 with `status: queued`.
-6. Only after this works, configure an optional Teams or Power Automate flow to post the same fields through a host protected by Microsoft Entra authentication.
+5. Confirme que a resposta local é HTTP 202 com `status: queued`.
+6. Somente depois que isso funcionar, configure um fluxo opcional do Teams ou Power Automate para postar os mesmos campos através de um host protegido pela autenticação Microsoft Entra.
 
-The decision producer connects only to Service Bus. Cosmos DB is initialized by the state-transition commands that submit, inspect, resume, escalate, or export workflows.
+O produtor de decisão conecta-se somente ao Service Bus. O Cosmos DB é inicializado pelos comandos de transição de estado que submetem, inspecionam, retomam, escalam ou exportam workflows.
 
-**Understand the output**
+**Entender a saída**
 
-`submit` returns durable state with `WAITING_FOR_REVIEW` or `READY_TO_EXECUTE`, risk evidence, and an ETag. `decide` only queues an event. `resume` applies it, increments `version`, writes `human_review`, and appends a linked audit record. Duplicate terminal decisions return `duplicate: true`. `escalate` returns workflow IDs moved to `ESCALATED`. Active-learning output contains only rejected or overridden examples plus aggregate decision, rationale, and trace coverage.
+`submit` retorna estado durável com `WAITING_FOR_REVIEW` ou `READY_TO_EXECUTE`, evidência de risco e um ETag. `decide` apenas enfileira um evento. `resume` o aplica, incrementa `version`, grava `human_review` e anexa um registro de auditoria vinculado. Decisões terminais duplicadas retornam `duplicate: true`. `escalate` retorna IDs de workflow movidos para `ESCALATED`. A saída de active-learning contém apenas exemplos rejeitados ou sobrescritos mais decisão agregada, justificativa e cobertura de trace.
 
-## Task 6: Validate the implementation
+## Tarefa 6: Validar a implementação
 
-**Validate durable state and audit evidence**
+**Validar estado durável e evidência de auditoria**
 
-1. Query Cosmos DB and confirm current state survives restarts.
-2. Verify every audit record, including submitted, duplicate, decision, and escalation events, has workflow ID, event ID, UTC timestamp, actor hash, previous and new state, rationale category, policy version, trace ID, `state_etag`, and `state_version`.
-3. Inspect Service Bus incoming, active, and completed message metrics before and after a webhook POST to prove the reviewer path is asynchronous and observable.
+1. Consulte o Cosmos DB e confirme que o estado atual sobrevive a reinícios.
+2. Verifique que cada registro de auditoria, incluindo submetido, duplicado, decisão e eventos de escalonamento, contenha ID do workflow, ID do evento, timestamp UTC, hash do ator, estado anterior e novo, categoria da justificativa, versão da política, trace ID, `state_etag` e `state_version`.
+3. Inspecione métricas de mensagens do Service Bus (incoming, active e completed) antes e depois de um POST ao webhook para provar que o caminho do revisor é assíncrono e observável.
 
-**Validate the reviewer path**
+**Validar o caminho do revisor**
 
-4. For a local observable check, start the webhook.
-5. POST synthetic Adaptive Card data with `Invoke-RestMethod`, including `X-MS-CLIENT-PRINCIPAL-ID: SYN-REVIEWER-01`.
-6. Confirm HTTP 202.
-7. Observe the decision queue count increase.
-8. Run `resume`.
-9. Observe the queue count decrease and a linked Cosmos audit event.
-10. In a hosted environment, accept that header only from the platform's Microsoft Entra authentication layer.
+4. Para uma verificação observável local, inicie o webhook.
+5. POST com dados sintéticos do Adaptive Card com `Invoke-RestMethod`, incluindo `X-MS-CLIENT-PRINCIPAL-ID: SYN-REVIEWER-01`.
+6. Confirme HTTP 202.
+7. Observe o aumento na contagem da fila de decisões.
+8. Execute `resume`.
+9. Observe a diminuição da contagem da fila e um evento de auditoria vinculado no Cosmos.
+10. Em um ambiente hospedado, aceite esse cabeçalho somente a partir da camada de autenticação Microsoft Entra da plataforma.
 
-**Validate workflow outcomes**
+**Validar resultados do workflow**
 
-11. Demonstrate approved and executed, rejected and closed, overridden and executed, and overdue and escalated synthetic records.
-12. Inspect both active-learning files and confirm their counts match the rejected and overridden Cosmos records.
-13. Confirm that no action executes from a pending or rejected state.
+11. Demonstre registros sintéticos aprovados e executados, rejeitados e fechados, sobrescritos e executados, e vencidos e escalados.
+12. Inspecione os arquivos de active-learning e confirme que suas contagens correspondem aos registros rejeitados e sobrescritos no Cosmos.
+13. Confirme que nenhuma ação é executada a partir de um estado pendente ou rejeitado.
 
-**Validate the Azure resources**
+**Validar os recursos do Azure**
 
-14. In the Azure portal, validate only the provisioned Cosmos DB account, `approvals` database and two containers, Service Bus namespace and two queues, and their metrics.
+14. No portal do Azure, valide apenas a conta do Cosmos DB provisionada, o banco de dados `approvals` e dois containers, o namespace do Service Bus e duas filas, e suas métricas.
 
-Teams and Power Automate are optional external reviewer surfaces and are not provisioned by this lab.
+Teams e Power Automate são superfícies externas opcionais de revisor e não são provisionados por este laboratório.
 
-**Compare with the canonical durable human-interaction pattern**
+**Comparar com o padrão canônico de interação humana durável**
 
-15. Compare this lab's hand-rolled design with the Durable Functions/Durable Task human-interaction pattern in [Human interaction in Durable Functions](https://learn.microsoft.com/azure/durable-task/common/durable-task-human-interaction).
-16. In the canonical pattern, an orchestration waits for a named external approval event and creates a durable timer for the deadline. It races those durable tasks, cancels the timer when the approval wins, and follows the timeout or escalation path when the timer wins.
-17. Map those concepts to this lab: Service Bus carries the external decision, Cosmos DB stores resumable state and the deadline, `resume` applies an event exactly once, and `escalate` performs the timer-equivalent deadline scan.
-18. Record one tradeoff. The current architecture exposes queue and state mechanics for learning and works without replacing the application with Durable Functions, but the application owns replay safety, scheduling, duplicate handling, and race resolution that a durable orchestrator framework normally coordinates.
+15. Compare o design manual deste laboratório com o padrão de interação humana do Durable Functions/Durable Task em [Human interaction in Durable Functions](https://learn.microsoft.com/azure/durable-task/common/durable-task-human-interaction).
+16. No padrão canônico, uma orquestração espera por um evento externo nomeado de aprovação e cria um timer durável para o prazo. Ela faz uma corrida entre essas tarefas duráveis, cancela o timer quando a aprovação vence e segue o caminho de timeout ou escalonamento quando o timer vence.
+17. Mapeie esses conceitos para este laboratório: o Service Bus transporta a decisão externa, o Cosmos DB armazena estado resumível e o deadline, `resume` aplica um evento exatamente uma vez, e `escalate` realiza a varredura equivalente ao timer para o deadline.
+18. Registre uma troca (tradeoff). A arquitetura atual expõe mecânicas de fila e estado para aprendizado e funciona sem substituir a aplicação por Durable Functions, mas a aplicação possui a responsabilidade por segurança de replay, agendamento, tratamento de duplicatas e resolução de corrida que um framework de orquestrador durável normalmente coordena.
 
-This is an optional conceptual comparison. Do not replace the lab's Service Bus/Cosmos DB architecture.
+Isto é uma comparação conceitual opcional. Não substitua a arquitetura Service Bus/Cosmos DB do laboratório.
 
-## Optional challenge: Add a reviewer band
+## Desafio opcional: Adicionar uma banda de revisores
 
-Add a second confidence band that routes to a different synthetic reviewer group.
+Adicione uma segunda banda de confiança que roteie para um grupo diferente de revisores sintéticos.
 
-**Expected output:** A request in that band records the selected threshold and reviewer group and enters the correct durable approval state.
+**Saída esperada:** Uma solicitação nessa banda registra o limiar selecionado e o grupo de revisores e entra no estado de aprovação durável correto.
 
-**Failure investigation:** Resume the same decision after a simulated timeout and prove that the protected action and audit event are not duplicated.
-## Task 7: Review the design
+**Investigação de falha:** Retome a mesma decisão após um timeout simulado e prove que a ação protegida e o evento de auditoria não são duplicados.
+## Tarefa 7: Revisar o design
 
-1. Answer these questions:
+1. Responda essas perguntas:
 
-- Which signal should override high model confidence?
-- Why does the resume worker own execution rather than the reviewer endpoint?
-- How would you prove that human oversight is substantive rather than rubber-stamping?
+- Qual sinal deve sobrepor alta confiança do modelo?
+- Por que o worker de retomada (resume worker) é responsável pela execução em vez do endpoint do revisor?
+- Como você provaria que a supervisão humana é substancial e não mera formalidade (rubber-stamping)?
 
-## Task 8: Clean up
+## Tarefa 8: Limpeza
 
-**Remove Azure resources**
+**Remover recursos do Azure**
 
-1. Run `azd down --purge`.
-2. Confirm Cosmos DB and Service Bus are deleted.
-3. Remove `.env`.
-4. Retain only the instructor-requested synthetic report.
+1. Execute `azd down --purge`.
+2. Confirme que Cosmos DB e Service Bus foram deletados.
+3. Remova `.env`.
+4. Mantenha apenas o relatório sintético solicitado pelo instrutor.
 
-**Deactivate the virtual environment**
+**Desativar o ambiente virtual**
 
-5. Run this command separately in every terminal where `(.venv)` appears in the prompt:
+5. Execute este comando separadamente em cada terminal onde `(.venv)` apareça no prompt:
 
 ```powershell
 deactivate
 ```
 
-6. Confirm that `(.venv)` no longer appears in any terminal before changing to another lab directory.
+6. Confirme que `(.venv)` não aparece mais em nenhum terminal antes de mudar para outro diretório de laboratório.
 
-## Summary
+## Resumo
 
-You implemented a durable human approval workflow with risk-based escalation, asynchronous events, restart-safe resume, rejection feedback, timeout escalation, and immutable audit evidence.
+Você implementou um workflow de aprovação humana durável com escalonamento baseado em risco, eventos assíncronos, retomada segura a reinícios, feedback de rejeição, escalonamento por timeout e evidência de auditoria imutável.

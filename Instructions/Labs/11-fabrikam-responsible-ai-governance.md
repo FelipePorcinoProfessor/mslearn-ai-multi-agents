@@ -1,55 +1,56 @@
 ---
 lab:
-  title: 'Govern a Foundry multi-agent code review'
-  description: 'Apply content safety, fairness, transparency, privacy, and accountability controls to a Microsoft Foundry multi-agent workflow.'
+  title: 'Governar uma revisão de código multiagente do Foundry'
+  description: 'Aplicar controles de segurança de conteúdo, equidade, transparência, privacidade e responsabilização a um fluxo de trabalho multiagente do Microsoft Foundry.'
   duration: 45
   level: 400
   islab: true
   status: 'released'
+layout: default
 ---
 
-# Govern a Foundry multi-agent code review
+# Governar uma revisão de código multiagente do Foundry
 
-## Customer scenario
+## Cenário do cliente
 
-Fabrikam uses specialized AI agents to review customer code. A security reviewer identifies vulnerabilities, a fairness auditor checks whether equivalent technology stacks receive consistent outcomes, and a governance orchestrator combines their evidence. Because the recommendation can delay a deployment, Fabrikam must screen the request, minimize every handoff, preserve attribution, and require human review when a policy threshold is exceeded.
+A Fabrikam usa agentes de IA especializados para revisar código de clientes. Um revisor de segurança identifica vulnerabilidades, um auditor de equidade verifica se stacks tecnológicos equivalentes recebem resultados consistentes e um orquestrador de governança combina as evidências. Como a recomendação pode atrasar uma implantação, a Fabrikam precisa triagem do pedido, minimizar cada transferência, preservar a atribuição e exigir revisão humana quando um limite de política for excedido.
 
-## Lab scenario
+## Cenário do laboratório
 
-You will deploy a Microsoft Foundry project, a model with Foundry-native guardrails, and workspace-based Application Insights by using Bicep. You will then complete a deterministic policy gate and run a three-agent governance workflow:
+Você implantará um projeto Microsoft Foundry, um modelo com guardrails nativos do Foundry e Application Insights baseado em workspace usando Bicep. Em seguida, você completará um portão determinístico de política e executará um fluxo de trabalho de governança com três agentes:
 
-1. Foundry applies its default safety guardrails to model prompts and completions.
-1. The **security-reviewer** receives only the source fragment and external evidence reference needed for its task.
-1. The **fairness-auditor** receives only calculated group rates, disparity, and the policy threshold.
-1. The **governance-orchestrator** receives minimized specialist results and the deterministic policy decision.
-1. The application records response IDs, hashes, policy metadata, and the human-review result without logging raw source code, tenant identity, prompts, or hidden reasoning.
+1. O Foundry aplica seus guardrails de segurança padrão aos prompts e completions do modelo.
+1. O **security-reviewer** recebe apenas o fragmento de origem e a referência de evidência externa necessários para sua tarefa.
+1. O **fairness-auditor** recebe apenas taxas de grupo calculadas, disparidade e o limite da política.
+1. O **governance-orchestrator** recebe resultados minimizados dos especialistas e a decisão determinística da política.
+1. A aplicação registra IDs de resposta, hashes, metadados de política e o resultado da revisão humana sem registrar código-fonte bruto, identidade do locatário, prompts ou raciocínio oculto.
 
-By the end of this exercise, you will be able to:
+Ao fim deste exercício, você será capaz de:
 
-- Identify where Foundry-native guardrails protect model prompts and completions.
-- Measure fairness disparity with paired synthetic probes.
-- Restrict each agent handoff to purpose-specific data.
-- Preserve agent attribution with Foundry response IDs.
-- Query minimized accountability evidence in Application Insights.
+- Identificar onde os guardrails nativos do Foundry protegem prompts e completions do modelo.
+- Medir disparidade de equidade com sondas sintéticas pareadas.
+- Restringir cada transferência entre agentes a dados específicos para o propósito.
+- Preservar a atribuição do agente com IDs de resposta do Foundry.
+- Consultar evidências de responsabilização minimizadas no Application Insights.
 
-> **Important**: The model deployment, Log Analytics, and Application Insights are billable. Use only the supplied synthetic data and delete the resources after validation.
+> **Importante**: A implantação do modelo, o Log Analytics e o Application Insights são passíveis de cobrança. Use apenas os dados sintéticos fornecidos e exclua os recursos após a validação.
 
-## Task 1: Prepare the lab
+## Tarefa 1: Preparar o laboratório
 
-1. Install [Python 3.10+](https://www.python.org/downloads/), [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd), [Visual Studio Code](https://code.visualstudio.com/download), and the VS Code [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python) and [Bicep](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-bicep) extensions.
+1. Instale [Python 3.10+](https://www.python.org/downloads/), [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd), [Visual Studio Code](https://code.visualstudio.com/download) e as extensões do VS Code [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python) e [Bicep](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-bicep).
 
-2. Use an Azure identity that can create Microsoft Foundry, model deployment, and monitoring resources and can assign roles.
-3. Select a region where the required model is available.
-4. Do not use customer code, personal data, credentials, or secrets.
+2. Use uma identidade do Azure que possa criar recursos do Microsoft Foundry, implantação de modelo e monitoramento e que possa atribuir funções.
+3. Selecione uma região onde o modelo necessário esteja disponível.
+4. Não use código de cliente, dados pessoais, credenciais ou segredos.
 
-5. If you haven't already done so, clone the lab repository:
+5. Se você ainda não fez, clone o repositório do laboratório:
 
 ```console
 git clone https://github.com/MicrosoftLearning/mslearn-ai-multi-agents.git
 ```
 
-6. Open the repository in Visual Studio Code.
-7. In a PowerShell terminal, go to the lab directory and verify the tools and active subscription:
+6. Abra o repositório no Visual Studio Code.
+7. Em um terminal PowerShell, vá para o diretório do laboratório e verifique as ferramentas e a assinatura ativa:
 
 ```powershell
 cd Allfiles\11-fabrikam-responsible-ai-governance
@@ -59,37 +60,37 @@ python --version
 az account show --output table
 ```
 
-**Architecture checkpoint**
+**Ponto de verificação da arquitetura**
 
-Review these components before editing:
+Revise estes componentes antes de editar:
 
-| Component | What to locate |
+| Componente | O que localizar |
 |---|---|
-| `assets/governance-scenario.json` and `policy/governance-policy.yaml` | Synthetic inputs, fairness threshold, and human-review policy |
-| `src/governance.py` | Fairness calculations, minimized payloads, identifier hashing, and evidence |
-| `src/main.py` | Deterministic local orchestration and the `--live` Foundry path |
-| `kql/governance-evidence.kql` | Minimized accountability evidence |
-| `infra/main.bicep` | Foundry, model, monitoring, and least-privilege role assignments |
+| `assets/governance-scenario.json` e `policy/governance-policy.yaml` | Entradas sintéticas, limite de equidade e política de revisão humana |
+| `src/governance.py` | Cálculos de equidade, cargas minimizadas, hashing de identificadores e evidências |
+| `src/main.py` | Orquestração local determinística e o caminho Foundry `--live` |
+| `kql/governance-evidence.kql` | Evidência de responsabilização minimizada |
+| `infra/main.bicep` | Foundry, modelo, monitoramento e atribuições de função de menor privilégio |
 
-Before continuing, confirm that the default workflow is local and deterministic and that only the `--live` path invokes Foundry agents.
+Antes de continuar, confirme que o fluxo de trabalho padrão é local e determinístico e que apenas o caminho `--live` invoca agentes do Foundry.
 
-## Task 2: Build the virtual environment
+## Tarefa 2: Construir o ambiente virtual
 
-1. On Windows, run:
+1. No Windows, execute:
 
 ```powershell
 ./scripts/setup.ps1
 . ./.venv/Scripts/Activate.ps1
 ```
 
-> On macOS/Linux, run `bash scripts/setup.sh` and `source .venv/bin/activate` instead.
+> No macOS/Linux, execute `bash scripts/setup.sh` e `source .venv/bin/activate` em vez disso.
 
-## Task 3: Deploy Azure resources
+## Tarefa 3: Implantar recursos do Azure
 
-1. Set the deployment values.
-2. Replace the model name and version if they are not available in your approved region.
-> **Resource group:** If your lab environment provides a precreated resource group, set `$resourceGroupName` to its name. Otherwise, leave `$resourceGroupName` empty so the script creates a unique resource group in your subscription.
-3. Run the following commands:
+1. Defina os valores de implantação.
+2. Substitua o nome e a versão do modelo se não estiverem disponíveis na região aprovada.
+> **Grupo de recursos:** Se o ambiente do seu laboratório fornecer um grupo de recursos pré-criado, defina `$resourceGroupName` para seu nome. Caso contrário, deixe `$resourceGroupName` vazio para que o script crie um grupo de recursos exclusivo em sua assinatura.
+3. Execute os seguintes comandos:
 
 ```powershell
 $azureRegion = 'eastus2'
@@ -116,22 +117,22 @@ azd provision
 azd env get-values | Out-File .env -Encoding utf8
 ```
 
-> **Note**: If `azd env new` reports that the environment exists, select another environment name or use the existing environment. If provisioning fails, inspect the first deployment error. Model availability, quota, Azure Policy, and role-assignment permissions are common causes.
+> **Nota**: Se `azd env new` relatar que o ambiente já existe, selecione outro nome de ambiente ou use o ambiente existente. Se o provisionamento falhar, inspecione o primeiro erro de implantação. Disponibilidade de modelo, cota, Azure Policy e permissões de atribuição de função são causas comuns.
 
-4. Confirm that the generated `.env` contains identifiers, endpoints, and an Application Insights connection string; it contains no model keys or tokens. `DefaultAzureCredential` uses your Azure sign-in.
+4. Confirme que o `.env` gerado contém identificadores, endpoints e uma connection string do Application Insights; ele não contém chaves de modelo ou tokens. `DefaultAzureCredential` usa seu sign-in do Azure.
 
-> **Network access for this lab:** The Bicep template enables the Foundry account's native public network access and sets the default network action to **Allow** so the local application can reach the project endpoint. Microsoft Entra authentication and Azure RBAC are still required. After deployment, confirm these settings on the Foundry account **Networking** page. Production environments should use an approved selected-network or private-endpoint design.
+> **Acesso de rede para este laboratório:** O template Bicep habilita o acesso de rede público nativo da conta Foundry e define a ação de rede padrão como **Allow** para que a aplicação local consiga alcançar o endpoint do projeto. A autenticação Microsoft Entra e o Azure RBAC ainda são exigidos. Após a implantação, confirme essas configurações na página **Rede (Networking)** da conta Foundry. Ambientes de produção devem usar um design aprovado de selected-network ou private-endpoint.
 
-## Task 4: Implement the policy gate
+## Tarefa 4: Implementar o portão de política
 
-Each placeholder marks incomplete code. Copy each supplied snippet into its placeholder location, keep the `LAB PLACEHOLDER` comment, replace only the indicated incomplete line or block, and preserve the surrounding indentation.
+Cada placeholder marca código incompleto. Copie cada trecho fornecido para seu placeholder correspondente, mantenha o comentário `LAB PLACEHOLDER`, substitua somente a linha ou bloco incompleto indicado e preserve a indentação ao redor.
 
 ```python
 # LAB PLACEHOLDER 1: Replace this line with the Task 1 sample.
 raise NotImplementedError("Complete requires_human_review in Task 1")
 ```
 
-1. Replace only the `raise NotImplementedError(...)` line beneath the retained marker with this implementation, preserving indentation:
+1. Substitua apenas a linha `raise NotImplementedError(...)` sob o marcador mantido por esta implementação, preservando a indentação:
 
 ```python
 fairness = evidence.get("fairness")
@@ -147,9 +148,9 @@ except (KeyError, TypeError, ValueError):
     return True
 ```
 
-This decision is fail-closed: incomplete or malformed evidence requires human review. Thresholds come from the versioned policy instead of being duplicated in code.
+Esta decisão é de fechar em caso de falha: evidência incompleta ou malformada exige revisão humana. Limites vêm da política versionada em vez de serem duplicados no código.
 
-2. Check the completed code:
+2. Verifique o código concluído:
 
 ```powershell
 & .\.venv\Scripts\python.exe -m py_compile src/main.py src/governance.py scripts/preflight.py
@@ -157,116 +158,116 @@ This decision is fail-closed: incomplete or malformed evidence requires human re
 Select-String -Path src/governance.py -Pattern 'NotImplementedError'
 ```
 
-Preflight must show `PASS` for the Foundry project, model, and Application Insights configuration checks and end with `READY (Azure configured)`. The final command must return no matches.
+A verificação prévia deve mostrar `PASS` para os cheques de configuração do projeto Foundry, modelo e Application Insights e terminar com `READY (Azure configured)`. O comando final não deve retornar correspondências.
 
-**Inspect the privacy boundaries**
+**Inspecione os limites de privacidade**
 
-3. Open `policy/governance-policy.yaml` and compare `agent_inputs` with `build_agent_payload` in `src/governance.py`.
+3. Abra `policy/governance-policy.yaml` e compare `agent_inputs` com `build_agent_payload` em `src/governance.py`.
 
-| Agent | Allowed input | Deliberately excluded |
+| Agente | Entrada permitida | Excluído deliberadamente |
 |---|---|---|
-| `security-reviewer` | Request ID, synthetic source fragment, CWE reference | Tenant identity, fairness probes, policy internals |
-| `fairness-auditor` | Request ID, group rates, disparity, threshold | Source code, tenant identity, security output |
-| `governance-orchestrator` | Request ID, policy version, control results, specialist results | Raw source code, tenant identity, hidden reasoning |
+| `security-reviewer` | Request ID, fragmento de origem sintético, referência CWE | Identidade do locatário, sondas de equidade, internos da política |
+| `fairness-auditor` | Request ID, taxas de grupo, disparidade, limite | Código-fonte, identidade do locatário, saída de segurança |
+| `governance-orchestrator` | Request ID, versão da política, resultados de controle, resultados dos especialistas | Código-fonte bruto, identidade do locatário, raciocínio oculto |
 
-4. Check that the application doesn't record raw prompts or hidden reasoning:
+4. Verifique que a aplicação não registre prompts brutos ou raciocínio oculto:
 
 ```powershell
 Select-String -Path src/governance.py,src/main.py -Pattern 'chain_of_thought|raw_prompt'
 ```
 
-The command must return no matches.
+O comando não deve retornar correspondências.
 
-5. Locate the fields used for hashed values and Foundry agent attribution:
+5. Localize os campos usados para valores hashed e atribuição de agente do Foundry:
 
 ```powershell
 Select-String -Path src/governance.py -Pattern 'tenant_id_hash|input_sha256|agent_response_ids'
 ```
 
-The command should show that raw values are replaced by hashes and that Foundry response IDs provide agent attribution.
+O comando deve mostrar que valores brutos foram substituídos por hashes e que os IDs de resposta do Foundry fornecem atribuição do agente.
 
-## Task 5: Run the solution
+## Tarefa 5: Executar a solução
 
-**Run the deterministic workflow**
+**Execute o fluxo de trabalho determinístico**
 
-1. Run the workflow without Azure calls:
+1. Execute o fluxo de trabalho sem chamadas ao Azure:
 
 ```powershell
 & .\.venv\Scripts\python.exe -m src.main
 ```
 
-The output must show:
+A saída deve mostrar:
 
-- `mode` equal to `deterministic`.
-- Python positive-outcome rate `1.0` and Node positive-outcome rate `0.5`.
-- Maximum fairness disparity `0.5`.
-- `human_review_required` equal to `true` because `0.5` exceeds the policy threshold of `0.1`.
-- Three local response IDs, one for each agent role.
-- Purpose-specific field names under `payloadFields`.
+- `mode` igual a `deterministic`.
+- Taxa de resultado positivo em Python `1.0` e taxa de resultado positivo em Node `0.5`.
+- Disparidade máxima de equidade `0.5`.
+- `human_review_required` igual a `true` porque `0.5` excede o limite da política de `0.1`.
+- Três IDs locais de resposta, um para cada função de agente.
+- Nomes de campo específicos para propósito sob `payloadFields`.
 
-2. Inspect the latest evidence record:
+2. Inspecione o último registro de evidência:
 
 ```powershell
 $evidence = Get-Content evidence/governance-evidence.jsonl | Select-Object -Last 1 | ConvertFrom-Json
 $evidence | ConvertTo-Json -Depth 10
 ```
 
-3. Confirm that it includes `evidence_scope` equal to `single_process_local_jsonl`, the policy ID and version, fairness rates, hashes, human-review result, and three response IDs. It must not include the raw tenant value or source fragment from `assets/governance-scenario.json`.
+3. Confirme que inclui `evidence_scope` igual a `single_process_local_jsonl`, o ID e versão da política, taxas de equidade, hashes, resultado da revisão humana e três IDs de resposta. Não deve incluir o valor bruto do locatário ou o fragmento de origem de `assets/governance-scenario.json`.
 
-The JSONL file is local, single-process exercise evidence. It is not a concurrency-safe or centralized production evidence store; use Application Insights or another governed central sink when multiple processes can write.
+O arquivo JSONL é evidência local de exercício de processo único. Não é um armazenamento de evidência concorrente ou centralizado; use Application Insights ou outro sink central governado quando múltiplos processos puderem escrever.
 
-**Run the live multi-agent workflow**
+**Execute o fluxo de trabalho multiagente ao vivo**
 
-The live command creates a version of each Foundry prompt agent and invokes them in this order. Foundry's native guardrails evaluate the prompts and completions inline:
+O comando ao vivo cria uma versão de cada agente prompt do Foundry e os invoca nesta ordem. Os guardrails nativos do Foundry avaliam os prompts e completions inline:
 
 - `security-reviewer`
 - `fairness-auditor`
 - `governance-orchestrator`
 
-4. Run it once:
+4. Execute-o uma vez:
 
 ```powershell
 & .\.venv\Scripts\python.exe -m src.main --live
 ```
 
-The command prints each agent's `responseId` and text, appends one minimized local evidence record, and emits one `fabrikam.governance.evidence` trace to Application Insights. Azure Monitor telemetry is configured once per Python process and reused for subsequent emissions in that process. The model can vary its wording, but the fairness calculation and human-review decision remain deterministic.
+O comando imprime o `responseId` e o texto de cada agente, acrescenta um registro de evidência local minimizado e emite um rastreamento (trace) `fabrikam.governance.evidence` para o Application Insights. A telemetria do Azure Monitor é configurada uma vez por processo Python e reutilizada para emissões subsequentes nesse processo. O modelo pode variar sua redação, mas o cálculo de equidade e a decisão de revisão humana permanecem determinísticos.
 
-> **Note**: Role assignments can take several minutes to propagate. If the first live run returns an authorization error, wait briefly, sign in again with `az login` if needed, and rerun the command.
+> **Nota**: A atribuição de funções pode levar vários minutos para propagar. Se a primeira execução ao vivo retornar um erro de autorização, aguarde brevemente, faça sign in novamente com `az login` se necessário, e execute o comando novamente.
 
-## Task 6: Validate the implementation
+## Tarefa 6: Validar a implementação
 
-**Validate in Microsoft Foundry**
+**Validar no Microsoft Foundry**
 
-1. Open [Microsoft Foundry](https://ai.azure.com/) and select the project named `lab11-<environment-name>`.
-2. In the left navigation, select **Agents**.
-3. Confirm that `security-reviewer`, `fairness-auditor`, and `governance-orchestrator` exist and each has a version.
-4. Review each agent's instructions.
-5. Confirm that its role is narrow and that the orchestrator is instructed not to request raw source, tenant identity, or hidden reasoning.
-6. At the top of the **Agents** page, select **Traces**. There is no separate **Observability** navigation item in the current Foundry portal.
-7. Search by **Response ID** using an ID from `agentResponses` in the terminal output or `agent_response_ids` in the latest local evidence record.
-8. Open each matching trace and compare its response ID with the corresponding security reviewer, fairness auditor, or governance orchestrator response.
-9. Inspect the inputs.
-10. Confirm that only the security reviewer receives `sourceCode`; the fairness auditor and governance orchestrator do not.
+1. Abra [Microsoft Foundry](https://ai.azure.com/) e selecione o projeto nomeado `lab11-<environment-name>`.
+2. Na navegação à esquerda, selecione **Agentes (Agents)**.
+3. Confirme que `security-reviewer`, `fairness-auditor` e `governance-orchestrator` existem e que cada um tem uma versão.
+4. Revise as instruções de cada agente.
+5. Confirme que sua função é estreita e que o orquestrador é instruído a não solicitar código-fonte bruto, identidade do locatário ou raciocínio oculto.
+6. No topo da página **Agentes (Agents)**, selecione **Rastreamentos (Traces)**. Não há um item separado **Observabilidade (Observability)** no portal atual do Foundry.
+7. Pesquise por **ID de resposta (Response ID)** usando um ID de `agentResponses` na saída do terminal ou `agent_response_ids` no último registro local de evidência.
+8. Abra cada rastreamento correspondente e compare seu ID de resposta com a resposta correspondente do security reviewer, fairness auditor ou governance orchestrator.
+9. Inspecione as entradas.
+10. Confirme que apenas o security reviewer recebe `sourceCode`; o fairness auditor e o governance orchestrator não recebem.
 
-> **Note**: If **Traces** isn't visible or a trace can't be opened, confirm that you selected the correct project, completed a live run, and allowed time for telemetry and role assignments to propagate. The Bicep template assigns the learner `Log Analytics Reader` on the connected Application Insights resource, which Microsoft Foundry requires for viewing trace data.
+> **Nota**: Se **Rastreamentos (Traces)** não estiver visível ou um rastreamento não puder ser aberto, confirme que você selecionou o projeto correto, completou uma execução ao vivo e permitiu tempo para a telemetria e as atribuições de função propagarem. O template Bicep atribui ao aprendiz `Log Analytics Reader` no recurso Application Insights conectado, o que o Microsoft Foundry requer para visualizar dados de rastreamento.
 
-**Review Foundry-native guardrails**
+**Revisar os guardrails nativos do Foundry**
 
-This lab doesn't deploy a standalone Azure AI Content Safety resource. The model deployment uses the default guardrails that Foundry applies to prompts and completions.
+Este laboratório não implanta um recurso separado Azure AI Content Safety. A implantação do modelo usa os guardrails padrão que o Foundry aplica a prompts e completions.
 
-11. In the Foundry project, select **Build** in the top menu, and then select **Models**.
-12. Open the deployment named `gpt-5.4-mini`.
-13. Review the deployment's guardrail or content-filter setting.
-14. Confirm that the deployment uses Foundry's default safety policy and isn't configured with an unfiltered custom policy.
-15. Return to **Agents** and review the latest traces.
-16. Confirm that each successful specialist and orchestrator response came from the guarded model deployment.
+11. No projeto Foundry, selecione **Construção (Build)** no menu superior e depois selecione **Modelos (Models)**.
+12. Abra a implantação nomeada `gpt-5.4-mini`.
+13. Revise o guardrail ou a configuração de filtro de conteúdo da implantação.
+14. Confirme que a implantação usa a política de segurança padrão do Foundry e não está configurada com uma política personalizada sem filtragem.
+15. Retorne a **Agentes (Agents)** e revise os últimos rastreamentos.
+16. Confirme que cada resposta bem-sucedida de especialista e do orquestrador veio da implantação do modelo com guardrail.
 
-Default guardrails block supported prompt or completion risks above their configured threshold. Use only the supplied neutral synthetic scenario; don't introduce harmful test content.
+Os guardrails padrão bloqueiam riscos de prompt ou completion acima de seus limites configurados. Use apenas o cenário sintético neutro fornecido; não introduza conteúdo de teste prejudicial.
 
-**Test the fairness boundary**
+**Testar o limite de equidade**
 
-17. Change only the final `node-b` probe in `assets/governance-scenario.json` from `0` to `1`.
-18. Run:
+17. Altere apenas a última sonda `node-b` em `assets/governance-scenario.json` de `0` para `1`.
+18. Execute:
 
 ```powershell
 & .\.venv\Scripts\python.exe -m src.main
@@ -275,21 +276,21 @@ $updated.fairness | ConvertTo-Json -Depth 5
 $updated.human_review_required
 ```
 
-Both rates should now be `1.0`, disparity should be `0.0`, and human review should be `false` because no fairness threshold is exceeded.
+Ambas as taxas agora devem ser `1.0`, a disparidade deve ser `0.0` e a revisão humana deve ser `false` porque nenhum limite de equidade foi excedido.
 
-19. Restore `node-b` to `0` before continuing.
+19. Restaure `node-b` para `0` antes de continuar.
 
-**Query accountability evidence**
+**Consultar evidência de responsabilização**
 
-20. Wait several minutes for the live trace to reach Application Insights.
-21. In the Azure portal, open the Application Insights resource whose name starts with `appi-lab11-`.
-22. Select **Logs**.
-23. Switch to KQL mode if needed.
-24. Run the contents of `kql/governance-evidence.kql`.
+20. Aguarde vários minutos para que o rastreamento ao vivo alcance o Application Insights.
+21. No portal do Azure, abra o recurso Application Insights cujo nome começa com `appi-lab11-`.
+22. Selecione **Registros (Logs)**.
+23. Mude para o modo KQL se necessário.
+24. Execute o conteúdo de `kql/governance-evidence.kql`.
 
-The result should show policy version `1.0.0`, at least one review and escalation, maximum disparity `0.5`, and the serialized response IDs for the three Foundry agents.
+O resultado deve mostrar a versão da política `1.0.0`, pelo menos uma revisão e escalonamento, disparidade máxima `0.5` e os IDs de resposta serializados para os três agentes do Foundry.
 
-25. Run this privacy query and confirm it returns zero rows:
+25. Execute esta consulta de privacidade e confirme que ela retorna zero linhas:
 
 ```kusto
 AppTraces
@@ -297,52 +298,53 @@ AppTraces
 | where Properties has_any ("tenant_id", "source_code", "raw_prompt", "chain_of_thought")
 ```
 
-26. Capture the following as the governance evidence set:
+26. Capture o seguinte como o conjunto de evidências de governança:
 
-- The Foundry model deployment's default guardrail assignment.
-- Fairness rates, disparity, and human-review decision.
-- The three Foundry agent versions and matching response IDs.
-- Trace inputs demonstrating purpose-specific data minimization.
-- The Application Insights policy summary and zero-row privacy result.
+- A atribuição de guardrail padrão da implantação do modelo do Foundry.
+- Taxas de equidade, disparidade e decisão de revisão humana.
+- As três versões de agentes do Foundry e os IDs de resposta correspondentes.
+- Inputs de rastreamento demonstrando minimização de dados por propósito.
+- O resumo da política no Application Insights e o resultado de privacidade com zero linhas.
 
-## Optional challenge: Trigger human review
+## Desafio opcional: Acionar revisão humana
 
-Add a synthetic fairness probe that crosses a configured governance threshold.
+Adicione uma sonda sintética de equidade que ultrapasse um limite de governança configurado.
 
-**Expected output:** The release gate changes to `human review required` and records both the measured value and policy threshold.
+**Resultado esperado:** O portão de liberação muda para `human review required` e registra tanto o valor medido quanto o limite da política.
 
-**Failure investigation:** Remove one required evidence field and confirm that the policy gate fails closed with a specific missing-evidence reason.
-## Task 7: Review the design
+**Investigação de falha:** Remova um campo de evidência obrigatório e confirme que o portão de política falha fechado com uma razão específica de evidência ausente.
 
-1. Answer these questions:
+## Tarefa 7: Revisar o design
 
-- Why is the human-review gate deterministic instead of delegated to the orchestrator agent?
-- How could bias compound if the fairness auditor received a security review framed with developer metadata?
-- Which additional controls would be required before processing real customer source code?
-- When should an audit store retain full specialist output instead of response IDs and minimized policy evidence?
+1. Responda a estas perguntas:
 
-## Task 8: Clean up
+- Por que o portão de revisão humana é determinístico em vez de delegado ao agente orquestrador?
+- Como o viés poderia se acumular se o fairness auditor recebesse uma revisão de segurança enquadrada com metadados do desenvolvedor?
+- Quais controles adicionais seriam necessários antes de processar código-fonte real de clientes?
+- Quando um repositório de auditoria deve reter a saída completa do especialista em vez de IDs de resposta e evidência de política minimizada?
 
-1. Delete the Azure resources:
+## Tarefa 8: Limpar
+
+1. Exclua os recursos do Azure:
 
 ```powershell
 azd down --purge
 ```
 
-2. If you used a precreated resource group, verify which resources the command will remove before confirming.
-3. Delete local evidence and environment values:
+2. Se você usou um grupo de recursos pré-criado, verifique quais recursos o comando removerá antes de confirmar.
+3. Exclua evidências locais e valores de ambiente:
 
 ```powershell
 Remove-Item evidence/governance-evidence.jsonl -ErrorAction SilentlyContinue
 Remove-Item .env -ErrorAction SilentlyContinue
 ```
 
-4. Deactivate the virtual environment in every terminal where `(.venv)` appears:
+4. Desative o ambiente virtual em todo terminal onde `(.venv)` aparecer:
 
 ```powershell
 deactivate
 ```
 
-## Summary
+## Resumo
 
-You deployed a Bicep-defined Microsoft Foundry project and governed a three-agent code review with native model guardrails, paired fairness probes, minimized handoffs, attributable response IDs, deterministic human oversight, and queryable Application Insights evidence.
+Você implantou um projeto Microsoft Foundry definido por Bicep e governou uma revisão de código com três agentes com guardrails nativos do modelo, sondas de equidade pareadas, transferências minimizadas, IDs de resposta atribuíveis, supervisão humana determinística e evidência consultável no Application Insights.

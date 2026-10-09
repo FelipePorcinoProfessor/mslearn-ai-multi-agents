@@ -1,46 +1,47 @@
 ---
 lab:
-  title: 'Design enterprise-scale agent communication with A2A in Azure'
-  description: 'Implement tenant-isolated A2A discovery, JSON-RPC messaging, Cosmos DB shared state, and conflict audit trails.'
+  title: 'Projetar comunicação de agentes em escala empresarial com A2A no Azure'
+  description: 'Implemente descoberta A2A isolada por locatário, mensagens JSON-RPC, estado compartilhado no Cosmos DB e trilhas de auditoria de conflitos.'
   duration: 45
   level: 400
   islab: true
   status: 'released'
+layout: default
 ---
 
-# Design enterprise-scale agent communication with A2A in Azure
+# Projetar comunicação de agentes em escala empresarial com A2A no Azure
 
-## Customer scenario
+## Cenário do cliente
 
-Contoso Capital must connect independently deployed research agents without hardcoded endpoints. Discovery must be capability based, tenant context must never cross boundaries, shared state must survive restarts, and contradictory recommendations need a durable resolution record.
+A Contoso Capital precisa conectar agentes de pesquisa implantados de forma independente sem endpoints codados. A descoberta deve ser baseada em capacidades, o contexto do locatário nunca deve cruzar limites, o estado compartilhado deve sobreviver a reinicializações e recomendações contraditórias precisam de um registro de resolução durável.
 
-## Lab scenario
+## Cenário do laboratório
 
-You will complete an A2A-compatible agent-card endpoint and JSON-RPC message endpoint, register cards in Azure Cosmos DB, route by tenant/capability/health, update task state with ETags, and write conflict decisions to an audit container.
+Você completará um endpoint compatível com A2A para agent-card e um endpoint de mensagens JSON-RPC, registrará cards no Azure Cosmos DB, roteará por locatário/capacidade/saúde, atualizará o estado de tarefas com ETags e gravará decisões de conflito em um contêiner de auditoria.
 
-<!-- LAB DIAGRAM PLACEHOLDER: Show tenant-scoped discovery, A2A message routing, Cosmos DB task state, and the conflict audit path. -->
+<!-- ESPAÇO RESERVADO DO DIAGRAMA DO LAB: Mostrar descoberta com escopo de locatário, roteamento de mensagens A2A, estado de tarefas no Cosmos DB e o caminho de auditoria de conflitos. -->
 
-By the end of this exercise, you will be able to:
+Ao final deste exercício, você será capaz de:
 
-- Design an A2A discovery registry and dynamic routing policy.
-- Persist distributed shared state with optimistic concurrency.
-- Enforce tenant-scoped context isolation.
-- Detect, resolve, and audit conflicting agent outputs.
+- Projetar um registro de descoberta A2A e uma política de roteamento dinâmica.
+- Persistir estado distribuído compartilhado com concorrência otimista.
+- Aplicar isolamento de contexto com escopo de locatário.
+- Detectar, resolver e auditar saídas conflitantes de agentes.
 
-> **Important**: Cosmos DB and the model deployment are billable. A2A capabilities may be preview; verify current support before production use. The lab uses local HTTP endpoints and synthetic data only.
+> **Importante**: Cosmos DB e a implantação do modelo são cobráveis. Capacidades A2A podem estar em preview; verifique o suporte atual antes do uso em produção. O laboratório usa endpoints HTTP locais e dados sintéticos apenas.
 
-## Task 1: Prepare the lab
+## Tarefa 1: Preparar o laboratório
 
-Use [Python 3.11+](https://www.python.org/downloads/), [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli)/[Bicep](https://learn.microsoft.com/azure/azure-resource-manager/bicep/install), [Azure Developer CLI (`azd`)](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd), [Visual Studio Code](https://code.visualstudio.com/download), and an authenticated subscription. You need permission to create Foundry, Cosmos DB, and data-plane role assignments. The examples use local port 8000; you can select another free port.
+Use [Python 3.11+](https://www.python.org/downloads/), [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli)/[Bicep](https://learn.microsoft.com/azure/azure-resource-manager/bicep/install), [Azure Developer CLI (`azd`)](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd), [Visual Studio Code](https://code.visualstudio.com/download) e uma subscription autenticada. Você precisa de permissão para criar Foundry, Cosmos DB e atribuições de função no plano de dados. Os exemplos usam a porta local 8000; você pode escolher outra porta livre.
 
-1. If you haven't already done so, clone the [lab source repository](https://github.com/MicrosoftLearning/mslearn-ai-multi-agents/tree/main), or fork the repository and clone your fork:
+1. Se ainda não fez, clone o [repositório de origem do laboratório](https://github.com/MicrosoftLearning/mslearn-ai-multi-agents/tree/main), ou faça um fork e clone do seu fork:
 
 ```console
 git clone https://github.com/MicrosoftLearning/mslearn-ai-multi-agents.git
 ```
 
-2. Open the cloned repository in Visual Studio Code.
-3. From the VS Code terminal, validate the required tools, credentials, and active subscription:
+2. Abra o repositório clonado no Visual Studio Code.
+3. Pelo terminal do VS Code, valide as ferramentas requeridas, as credenciais e a subscription ativa:
 
 ```powershell
 cd Allfiles\04-contoso-capital-a2a-communication
@@ -50,41 +51,41 @@ python --version
 az account show --output table
 ```
 
-**Architecture checkpoint**
+**Checkpoint de arquitetura**
 
-Review `infra/main.bicep`, `src/a2a_server.py`, `src/registry.py`, and the supplied agent-card assets. Before continuing, confirm that:
+Revise `infra/main.bicep`, `src/a2a_server.py`, `src/registry.py` e os assets de agent-card fornecidos. Antes de continuar, confirme que:
 
-- trusted tenant context supplies the `/tenantId` partition key;
-- the discovery registry expires stale agent cards while the audit container remains durable;
-- ETags protect shared task updates;
-- an accepted A2A request can reach the Foundry agent invocation and produce a server-side trace.
+- o contexto de locatário confiável fornece a chave de partição `/tenantId`;
+- o registro de descoberta expira agent cards inativos enquanto o contêiner de auditoria permanece durável;
+- ETags protegem atualizações compartilhadas de tarefas;
+- uma requisição A2A aceita pode alcançar a invocação do agente no Foundry e produzir uma trace no servidor.
 
-## Task 2: Build the virtual environment
+## Tarefa 2: Construir o ambiente virtual
 
-1. From the lab directory, create and activate the virtual environment:
+1. Do diretório do laboratório, crie e ative o ambiente virtual:
 
 ```powershell
 ./scripts/setup.ps1
 . ./.venv/Scripts/Activate.ps1
 ```
 
-> On macOS/Linux, run `bash scripts/setup.sh` and `source .venv/bin/activate` instead.
+> No macOS/Linux, execute `bash scripts/setup.sh` e `source .venv/bin/activate` em vez disso.
 
-## Task 3: Deploy the Azure resources
+## Tarefa 3: Implantar os recursos do Azure
 
-Check cost and role access before provisioning Foundry, Cosmos DB, Application Insights, and 30-day Log Analytics retention. Use a unique environment and synthetic tenant data. `azd` provisions infrastructure; the A2A server and protocol tests run locally.
+Verifique custo e acesso por função antes de provisionar Foundry, Cosmos DB, Application Insights e retenção de Log Analytics de 30 dias. Use um ambiente único e dados de locatário sintéticos. `azd` provisiona a infraestrutura; o servidor A2A e os testes de protocolo rodam localmente.
 
-**Set the deployment values**
+**Defina os valores de implantação**
 
-1. Set `$azureRegion` to an approved region that supports the selected model.
-2. Replace the example value `eastus2` if needed.
-> **Resource group:** If your lab environment provides a precreated resource group, set `$resourceGroupName` to its name. Otherwise, leave `$resourceGroupName` empty so the script creates a unique resource group in your subscription.
+1. Defina `$azureRegion` para uma região aprovada que suporte o modelo selecionado.
+2. Substitua o valor de exemplo `eastus2` se necessário.
+> **Grupo de recursos:** Se seu ambiente de laboratório fornecer um resource group pré-criado, defina `$resourceGroupName` para o seu nome. Caso contrário, deixe `$resourceGroupName` vazio para que o script crie um resource group exclusivo na sua subscription.
 
-> **Note:** `AZURE_DEV_USER_AGENT` tags provisioning for attribution and is not exported to `.env`. Remove it afterward to avoid tagging unrelated commands.
+> **Nota:** `AZURE_DEV_USER_AGENT` marca a provisão para atribuição e não é exportado para `.env`. Remova-o depois para evitar marcar comandos não relacionados.
 
-**Validate and provision the infrastructure**
+**Validar e provisionar a infraestrutura**
 
-3. Run the following commands:
+3. Execute os comandos a seguir:
 
 ```powershell
 $azureRegion = 'eastus2'
@@ -106,36 +107,36 @@ azd env get-values | Out-File .env -Encoding utf8
 Remove-Item Env:AZURE_DEV_USER_AGENT
 ```
 
-4. If provisioning fails, inspect the first Azure deployment error.
+4. Se o provisionamento falhar, inspecione o primeiro erro de implantação do Azure.
 
-Model or region availability, Cosmos DB availability, quota, and role-assignment permissions are common causes.
+Disponibilidade de modelo ou região, disponibilidade do Cosmos DB, cota e permissões de atribuição de função são causas comuns.
 
-5. Correct the relevant `azd env` setting or permission, then run `azd provision` again.
+5. Corrija a `azd env` ou permissão relevante e então execute `azd provision` novamente.
 
-**Verify the generated environment**
+**Verifique o ambiente gerado**
 
-6. After provisioning succeeds, validate that `.env` includes `COSMOS_ENDPOINT`, `FOUNDRY_PROJECT_ENDPOINT`, `FOUNDRY_PROJECT_ID`, `FOUNDRY_MODEL_NAME`, `APPLICATIONINSIGHTS_RESOURCE_ID`, and `LOG_ANALYTICS_WORKSPACE_ID`.
+6. Após o provisionamento bem-sucedido, valide que `.env` inclui `COSMOS_ENDPOINT`, `FOUNDRY_PROJECT_ENDPOINT`, `FOUNDRY_PROJECT_ID`, `FOUNDRY_MODEL_NAME`, `APPLICATIONINSIGHTS_RESOURCE_ID` e `LOG_ANALYTICS_WORKSPACE_ID`.
 
-The Application Insights connection string is stored in the Foundry project connection and is not written to `.env`.
+A connection string do Application Insights está armazenada na conexão do projeto Foundry e não é gravada em `.env`.
 
-> **Network access for this lab:** The Bicep template enables native public network access for Foundry and Cosmos DB so the local application can reach both data-plane endpoints. Microsoft Entra authentication and Azure RBAC are still required. After deployment, confirm public access on both resources and confirm that the Foundry default network action is **Allow**. Production environments should use an approved selected-network or private-endpoint design.
+> **Acesso de rede para este laboratório:** O template Bicep habilita acesso de rede público nativo para Foundry e Cosmos DB para que a aplicação local possa alcançar ambos endpoints do plano de dados. Microsoft Entra authentication e Azure RBAC ainda são exigidos. Após a implantação, confirme o acesso público em ambos os recursos e confirme que a ação de rede padrão do Foundry é **Allow**. Ambientes de produção devem usar um design aprovado com selected-network ou private-endpoint.
 
-7. Do not add a Cosmos key, connection string, or token to `.env`.
+7. Não adicione uma key, connection string ou token do Cosmos em `.env`.
 
-## Task 4: Implement the solution
+## Tarefa 4: Implementar a solução
 
-Each placeholder marks incomplete code. Copy each supplied snippet into its placeholder location, keep the `LAB PLACEHOLDER` comment, replace only the indicated incomplete line or block, and preserve the surrounding indentation.
+Cada placeholder marca código incompleto. Copie cada snippet fornecido para seu local de placeholder, mantenha o comentário `LAB PLACEHOLDER`, substitua apenas a linha ou bloco incompleto indicado e preserve a indentação ao redor.
 
-**Register a tenant-owned agent card**
+**Registrar um agent card pertencente ao locatário**
 
-1. Open `src/registry.py` and find **LAB PLACEHOLDER 1** in `Registry.register`:
+1. Abra `src/registry.py` e encontre **LAB PLACEHOLDER 1** em `Registry.register`:
 
 ```python
 # LAB PLACEHOLDER 1: Replace this line with the Task 1 sample.
 raise NotImplementedError("Complete Registry.register in Task 1")
 ```
 
-2. Replace only the `raise NotImplementedError` line beneath it with this code:
+2. Substitua apenas a linha `raise NotImplementedError` abaixo por este código:
 
 ```python
 required_fields = ("id", "url", "capabilities")
@@ -154,18 +155,18 @@ entry = {
 return self.registry.upsert_item(entry)
 ```
 
-The trusted caller supplies `tenant_id`; a card cannot choose its own partition. Health and heartbeat fields make stale instances filterable before the container TTL removes abandoned registrations.
+O chamador confiável fornece `tenant_id`; um card não pode escolher sua própria partição. Campos de health e heartbeat tornam instâncias obsoletas filtráveis antes que o TTL do contêiner remova registros abandonados.
 
-**Discover a fresh healthy agent**
+**Descobrir um agente saudável e recente**
 
-3. Find **LAB PLACEHOLDER 2** in `Registry.discover`:
+3. Encontre **LAB PLACEHOLDER 2** em `Registry.discover`:
 
 ```python
 # LAB PLACEHOLDER 2: Replace this line with the Task 2 sample.
 raise NotImplementedError("Complete Registry.discover in Task 2")
 ```
 
-4. Replace only the `raise NotImplementedError` line beneath it with this code:
+4. Substitua apenas a linha `raise NotImplementedError` abaixo por este código:
 
 ```python
 cutoff = int(time.time()) - int(os.getenv("HEARTBEAT_MAX_AGE_SECONDS", "120"))
@@ -192,18 +193,18 @@ candidates = list(
 return sorted(candidates, key=lambda item: float(item.get("load", 1.0)))[:1]
 ```
 
-Partition-scoped, parameterized discovery filters by capability, health, and heartbeat freshness, then returns the lowest-load eligible agent. Freshness filtering takes effect before TTL deletion.
+Com escopo de partição, a descoberta parametrizada filtra por capability, health e freshness do heartbeat, então retorna o agente elegível com menor carga. O filtro de freshness vale antes da exclusão por TTL.
 
-**Update shared task state with ETags**
+**Atualizar estado compartilhado da tarefa com ETags**
 
-5. Find **LAB PLACEHOLDER 3** in `Registry.update_task`:
+5. Encontre **LAB PLACEHOLDER 3** em `Registry.update_task`:
 
 ```python
 # LAB PLACEHOLDER 3: Replace this line with the Task 3 sample.
 raise NotImplementedError("Complete Registry.update_task in Task 3")
 ```
 
-6. Replace only the `raise NotImplementedError` line beneath it with this code:
+6. Substitua apenas a linha `raise NotImplementedError` abaixo por este código:
 
 ```python
 for _ in range(3):
@@ -237,18 +238,18 @@ for _ in range(3):
 raise RuntimeError("Task update failed after three ETag attempts")
 ```
 
-Creation handles competing writers without overwriting them. Later updates use ETags; a 412 triggers a reread and reapplies only the caller's contribution, with a three-attempt limit.
+A criação lida com escritores concorrentes sem sobrescrevê-los. Atualizações posteriores usam ETags; um 412 aciona uma releitura e reaplica apenas a contribuição do chamador, com limite de três tentativas.
 
-**Resolve and audit conflicting outputs**
+**Resolver e auditar saídas conflitantes**
 
-7. Find **LAB PLACEHOLDER 4** in `Registry.resolve_and_audit`:
+7. Encontre **LAB PLACEHOLDER 4** em `Registry.resolve_and_audit`:
 
 ```python
 # LAB PLACEHOLDER 4: Replace this line with the Task 4 sample.
 raise NotImplementedError("Complete resolve_and_audit in Task 4")
 ```
 
-8. Replace only the `raise NotImplementedError` line beneath it with this code:
+8. Substitua apenas a linha `raise NotImplementedError` abaixo por este código:
 
 ```python
 candidates = conflict.get("candidates", [])
@@ -289,18 +290,18 @@ return {
 }
 ```
 
-Compliance outranks risk, which outranks analysis; tied winners or no recognized priority escalate. The audit retains participants and the decision, not model content, endpoints, or credentials.
+Compliance tem precedência sobre risk, que por sua vez tem precedência sobre analysis; empates entre vencedores ou ausência de prioridade reconhecida escalonam. A auditoria retém participantes e a decisão, não o conteúdo do modelo, endpoints ou credenciais.
 
-**Handle a tenant-scoped JSON-RPC message**
+**Lidar com uma mensagem JSON-RPC com escopo de locatário**
 
-9. Open `src/a2a_server.py` and find **LAB PLACEHOLDER 5** in `handle_message`:
+9. Abra `src/a2a_server.py` e encontre **LAB PLACEHOLDER 5** em `handle_message`:
 
 ```python
 # LAB PLACEHOLDER 5: Replace this line with the Task 5 sample.
 raise NotImplementedError("Complete handle_message in Task 5")
 ```
 
-10. Replace only the `raise NotImplementedError` line beneath it with this code:
+10. Substitua apenas a linha `raise NotImplementedError` abaixo por este código:
 
 ```python
 if payload.get("jsonrpc") != "2.0" or payload.get("method") != "message/send":
@@ -352,26 +353,26 @@ return {
 }
 ```
 
-The endpoint validates protocol shape before making a model call and compares message context with the trusted local tenant setting. The agent-bound OpenAI client uses the agent's dedicated endpoint, so the response request does not carry a shared-endpoint `agent_reference`. In production, authenticated middleware would derive that tenant value from verified identity claims rather than request JSON.
+O endpoint valida a forma do protocolo antes de fazer uma chamada ao modelo e compara o contexto da mensagem com a configuração local confiável do locatário. O cliente OpenAI vinculado ao agente usa o endpoint dedicado do agente, então a requisição de resposta não carrega um `agent_reference` de endpoint compartilhado. Em produção, middleware autenticado derivaria esse valor de locatário a partir de claims de identidade verificadas em vez do JSON da requisição.
 
-**Check the completed code**
+**Verificar o código completado**
 
-11. Run side-effect-free checks before starting the local server or accessing Azure:
+11. Execute verificações sem efeitos colaterais antes de iniciar o servidor local ou acessar o Azure:
 
 ```powershell
 python -m py_compile src/main.py src/registry.py src/a2a_server.py scripts/preflight.py
 python scripts/preflight.py
 ```
 
-12. Confirm that preflight reports four `PASS` lines, both starter files retain all five `LAB PLACEHOLDER` markers, and neither file contains `NotImplementedError`.
+12. Confirme que o preflight reporta quatro linhas `PASS`, que ambos os arquivos iniciais retêm todas as cinco marcações `LAB PLACEHOLDER` e que nenhum dos arquivos contém `NotImplementedError`.
 
-## Task 5: Run the solution
+## Tarefa 5: Executar a solução
 
-Use two terminals at the lab root, each with the virtual environment activated. Terminal 1 runs Uvicorn; Terminal 2 runs clients and validation. Temporary environment variables are terminal-local. Keep Uvicorn running until Task 7.
+Use dois terminais na raiz do laboratório, cada um com o ambiente virtual ativado. Terminal 1 executa Uvicorn; Terminal 2 executa clientes e validação. Variáveis de ambiente temporárias são locais ao terminal. Mantenha o Uvicorn em execução até a Tarefa 7.
 
-**Start the A2A server**
+**Iniciar o servidor A2A**
 
-1. In **Terminal 1**, activate the environment, register the card, and start the server:
+1. No **Terminal 1**, ative o ambiente, registre o card e inicie o servidor:
 
 ```powershell
 . ./.venv/Scripts/Activate.ps1
@@ -382,12 +383,12 @@ python -m src.main register --card assets/risk-agent-card.json
 python -m uvicorn src.a2a_server:app --host 127.0.0.1 --port $port
 ```
 
-2. Wait for `Uvicorn running on http://127.0.0.1:8000` (or your chosen port). If using another port, update all client URLs below.
+2. Aguarde `Uvicorn running on http://127.0.0.1:8000` (ou a porta escolhida). Se estiver usando outra porta, atualize todas as URLs dos clientes abaixo.
 
-**Run the A2A client commands**
+**Executar os comandos do cliente A2A**
 
-3. Open **Terminal 2** at `Allfiles\04-contoso-capital-a2a-communication`. If activation fails because the environment is missing, run `./scripts/setup.ps1` on Windows or `bash scripts/setup.sh` on macOS/Linux before continuing.
-4. Activate the environment with `. ./.venv/Scripts/Activate.ps1`. On macOS/Linux, use `source .venv/bin/activate` instead. Then run the client commands:
+3. Abra o **Terminal 2** em `Allfiles\04-contoso-capital-a2a-communication`. Se a ativação falhar porque o ambiente está ausente, execute `./scripts/setup.ps1` no Windows ou `bash scripts/setup.sh` no macOS/Linux antes de continuar.
+4. Ative o ambiente com `. ./.venv/Scripts/Activate.ps1`. No macOS/Linux, use `source .venv/bin/activate` em vez disso. Então execute os comandos do cliente:
 
 ```powershell
 . ./.venv/Scripts/Activate.ps1
@@ -397,29 +398,29 @@ python -m src.main discover --tenant contoso --capability risk-analysis
 python -m src.main send --url http://127.0.0.1:8000/a2a --message assets/a2a-request.json
 ```
 
-**Check the responses**
+**Verificar as respostas**
 
-5. Compare the output with these criteria:
+5. Compare a saída com estes critérios:
 
-| Operation | Expected evidence |
+| Operação | Evidência esperada |
 |---|---|
-| `register` (Terminal 1) | `id: risk-east-v1`, `tenantId: contoso`, `health: healthy`, `ttl: 300`, and a recent integer `heartbeat`. Cosmos system fields such as `_etag` vary. |
-| HTTP access log (Terminal 1) | `/`, `/.well-known/agent-card.json`, and `/a2a` return `200 OK`. Inspect bodies in Terminal 2; HTTP success alone is insufficient. |
-| Readiness | `status: ready` and the agent-card and message endpoint paths. |
-| Agent card | `name: contoso-risk-agent` and `url: http://127.0.0.1:8000/a2a`; no Cosmos or Foundry endpoint, key, or token. |
-| Discovery | One selected document for `contoso`, with `health: healthy` and capability `risk-analysis`. |
-| Send | JSON-RPC `2.0`, `id: request-001`, `result.tenantId: contoso`, a populated `result.response_id`, and synthetic portfolio-risk text. |
+| `register` (Terminal 1) | `id: risk-east-v1`, `tenantId: contoso`, `health: healthy`, `ttl: 300`, e um inteiro recente `heartbeat`. Campos de sistema do Cosmos como `_etag` variam. |
+| HTTP access log (Terminal 1) | `/`, `/.well-known/agent-card.json`, e `/a2a` retornam `200 OK`. Inspecione bodies no Terminal 2; sucesso HTTP sozinho é insuficiente. |
+| Readiness | `status: ready` e os caminhos de endpoint de agent-card e message. |
+| Agent card | `name: contoso-risk-agent` e `url: http://127.0.0.1:8000/a2a`; sem endpoint, key ou token do Cosmos ou Foundry. |
+| Discovery | Um documento selecionado para `contoso`, com `health: healthy` e capability `risk-analysis`. |
+| Send | JSON-RPC `2.0`, `id: request-001`, `result.tenantId: contoso`, um `result.response_id` preenchido, e texto sintético de portfolio-risk. |
 
-6. If discovery returns an empty array, rerun `python -m src.main register --card assets/risk-agent-card.json` in Terminal 2 and retry immediately. Registrations become ineligible after 120 seconds without a heartbeat.
+6. Se a descoberta retornar um array vazio, execute `python -m src.main register --card assets/risk-agent-card.json` novamente no Terminal 2 e tente novamente imediatamente. Registros ficam inelegíveis após 120 segundos sem heartbeat.
 
-Task ETags and `audit_id` are generated by the shared-state checks below, not by these initial commands.
+As ETags das Tarefas e `audit_id` são geradas pelas verificações de estado compartilhado abaixo, não por esses comandos iniciais.
 
-## Task 6: Validate the implementation
+## Tarefa 6: Validar a implementação
 
-1. Keep the Uvicorn server running in **Terminal 1**.
-2. Run all validation commands in **Terminal 2**, from the lab root with `(.venv)` visible in the prompt:
+1. Mantenha o servidor Uvicorn em execução no **Terminal 1**.
+2. Execute todos os comandos de validação no **Terminal 2**, a partir da raiz do laboratório com `(.venv)` visível no prompt:
 
-The syntax check is local; the next two commands call Uvicorn.
+A verificação de sintaxe é local; os dois próximos comandos chamam o Uvicorn.
 
 ```powershell
 python -m py_compile src/main.py src/registry.py src/a2a_server.py scripts/preflight.py
@@ -427,15 +428,15 @@ Invoke-RestMethod http://127.0.0.1:8000/.well-known/agent-card.json
 python -m src.main send --url http://127.0.0.1:8000/a2a --message assets/a2a-request.json
 ```
 
-3. Confirm that the syntax command returns to the prompt without an error, the agent-card request shows `contoso-risk-agent`, and the `send` command returns JSON-RPC `2.0` with `id: "request-001"` and a populated `result.response_id`.
+3. Confirme que o comando de sintaxe retorna ao prompt sem erro, a requisição de agent-card mostra `contoso-risk-agent` e o comando `send` retorna JSON-RPC `2.0` com `id: "request-001"` e um `result.response_id` preenchido.
 
-**Exercise durable shared state and conflict audit**
+**Exercitar estado compartilhado durável e auditoria de conflitos**
 
-4. Continue in **Terminal 2** while Terminal 1 keeps the server running.
+4. Continue no **Terminal 2** enquanto o Terminal 1 mantém o servidor em execução.
 
-The following test accesses Cosmos DB directly through `DefaultAzureCredential`, not through Uvicorn.
+O teste a seguir acessa o Cosmos DB diretamente através de `DefaultAzureCredential`, não através do Uvicorn.
 
-5. Run these checks first:
+5. Execute estas checagens primeiro:
 
 ```powershell
 Test-Path .env
@@ -443,12 +444,12 @@ Get-Content .env | Select-String '^COSMOS_(ENDPOINT|DATABASE_NAME)='
 az account show --output table
 ```
 
-`Test-Path` must return `True`, and the next command must display populated `COSMOS_ENDPOINT` and `COSMOS_DATABASE_NAME` lines.
+`Test-Path` deve retornar `True`, e o próximo comando deve exibir linhas `COSMOS_ENDPOINT` e `COSMOS_DATABASE_NAME` preenchidas.
 
-6. If `.env` is missing or either value is empty, rerun `azd env get-values | Out-File .env -Encoding utf8` from the lab root before continuing.
-7. Confirm that `az account show` displays the account used to provision the lab.
+6. Se `.env` estiver ausente ou qualquer valor vazio, execute `azd env get-values | Out-File .env -Encoding utf8` a partir da raiz do laboratório antes de continuar.
+7. Confirme que `az account show` exibe a conta usada para provisionar o laboratório.
 
-8. Run the entire block, including `@'` and `'@ | python -`, to pass the Python script to the active environment:
+8. Execute todo o bloco, incluindo `@'` e `'@ | python -`, para passar o script Python ao ambiente ativo:
 
 ```powershell
 @'
@@ -496,17 +497,17 @@ print("decision:", decision)
 '@ | python -
 ```
 
-The script captures a task version, advances the document with a second writer, proves Cosmos DB rejects the stale conditional replacement with HTTP 412, then uses the lab's normal merge path from a fresh read and persists the deterministic conflict decision in `audit`.
+O script captura uma versão da tarefa, avança o documento com um segundo escritor, prova que o Cosmos DB rejeita a substituição condicional obsoleta com HTTP 412, então usa o caminho normal de merge do laboratório a partir de uma leitura fresca e persiste a decisão determinística de conflito em `audit`.
 
-9. In Terminal 2, confirm `stale_write_rejected: 412` appears and that `first_etag`, `second_etag`, and `recovered_etag` are populated and pairwise different.
+9. No Terminal 2, confirme que `stale_write_rejected: 412` aparece e que `first_etag`, `second_etag` e `recovered_etag` estão preenchidos e são diferentes entre si.
 
-The `stale_writer` field must not persist. `supervisor-agent` demonstrates recovery after the rejected stale write; the A2A implementation itself remains unchanged.
+O campo `stale_writer` não deve persistir. `supervisor-agent` demonstra recuperação após a escrita obsoleta rejeitada; a implementação A2A em si permanece inalterada.
 
-The `decision` value must contain `status: "priority"`, `chosen_agent: "compliance-agent"`, and a populated `audit_id` UUID.
+O valor `decision` deve conter `status: "priority"`, `chosen_agent: "compliance-agent"` e um UUID `audit_id` preenchido.
 
-10. Save the printed `audit_id` for the portal check.
+10. Salve o `audit_id` impresso para a verificação no portal.
 
-11. In Terminal 2, read the task from a new Python process to verify persistence beyond the first process:
+11. No Terminal 2, leia a tarefa a partir de um novo processo Python para verificar persistência além do primeiro processo:
 
 ```powershell
 @'
@@ -529,39 +530,39 @@ print("current_etag:", task["_etag"])
 '@ | python -
 ```
 
-12. Confirm that `task_id` is `task-001`, `tenant_id` is `contoso`, `contributions` contains `risk-agent`, `compliance-agent`, and `supervisor-agent`, and no `stale_writer` field exists.
+12. Confirme que `task_id` é `task-001`, `tenant_id` é `contoso`, `contributions` contém `risk-agent`, `compliance-agent` e `supervisor-agent`, e que nenhum campo `stale_writer` existe.
 
-13. In the [Foundry portal](https://ai.azure.com), open the provisioned project and confirm a current `contoso-risk-agent` version.
-14. Select **Agents** > **Traces**.
-15. Set the time range to include the valid Contoso request.
-16. Search for the `result.response_id` value printed by the `send` command.
-17. Open the matching trace and confirm the agent name, version, successful response operation, and timing.
-18. In the Azure portal, open the provisioned Cosmos DB account and select **Data Explorer** > **agent-ecosystem** > **registry** > **Items**.
+13. No [portal do Foundry](https://ai.azure.com), abra o projeto provisionado e confirme uma versão atual `contoso-risk-agent`.
+14. Selecione **Agentes (Agents)** > **Traces (Traces)**.
+15. Defina o intervalo de tempo para incluir a requisição válida da Contoso.
+16. Procure pelo valor `result.response_id` impresso pelo comando `send`.
+17. Abra a trace correspondente e confirme o nome do agente, versão, operação de resposta bem-sucedida e o tempo.
+18. No portal do Azure, abra a conta provisionada do Cosmos DB e selecione **Explorador de Dados (Data Explorer)** > **agent-ecosystem** > **registry** > **Itens (Items)**.
 
-The registry container deliberately deletes inactive cards after five minutes because its default TTL is 300 seconds.
+O contêiner registry deliberadamente deleta cards inativos após cinco minutos porque seu TTL padrão é de 300 segundos.
 
-19. If **Items** is empty, run the following command in Terminal 2, then immediately select **Refresh** in Data Explorer:
+19. Se **Itens (Items)** estiver vazio, execute o seguinte comando no Terminal 2 e então selecione **Atualizar (Refresh)** em Explorador de Dados (Data Explorer) imediatamente:
 
    ```powershell
    python -m src.main register --card assets/risk-agent-card.json
    ```
 
-20. Open `risk-east-v1` and confirm its `tenantId`, health, heartbeat, TTL, and A2A URL.
+20. Abra `risk-east-v1` e confirme seu `tenantId`, health, heartbeat, TTL e A2A URL.
 
-The durable `tasks` and `audit` containers use TTL `-1`, so their documents remain until explicitly deleted.
+Os contêineres duráveis `tasks` e `audit` usam TTL `-1`, então seus documentos permanecem até serem excluídos explicitamente.
 
-21. Select **Data Explorer** > **agent-ecosystem** > **tasks** > **Items**.
-22. Open `task-001` and confirm that `contributions` contains `risk-agent`, `compliance-agent`, and `supervisor-agent`, and that `stale_writer` is absent.
+21. Selecione **Explorador de Dados (Data Explorer)** > **agent-ecosystem** > **tasks** > **Itens (Items)**.
+22. Abra `task-001` e confirme que `contributions` contém `risk-agent`, `compliance-agent` e `supervisor-agent`, e que `stale_writer` está ausente.
 
-Its current `_etag` should match `recovered_etag` until another write changes the document.
+Seu `_etag` atual deve combinar com `recovered_etag` até que outra escrita altere o documento.
 
-23. Select **Data Explorer** > **agent-ecosystem** > **audit** > **Items**.
-24. Find the item whose `id` matches the printed `audit_id`; confirm that `resolution` is `priority` and `chosenAgent` is `compliance-agent`.
+23. Selecione **Explorador de Dados (Data Explorer)** > **agent-ecosystem** > **audit** > **Itens (Items)**.
+24. Encontre o item cujo `id` corresponda ao `audit_id` impresso; confirme que `resolution` é `priority` e `chosenAgent` é `compliance-agent`.
 
-**Test cross-tenant rejection**
+**Testar rejeição entre locatários (cross-tenant)**
 
-25. Keep Uvicorn running in Terminal 1.
-26. In Terminal 2, create a temporary copy of the supplied request, change its request ID and tenant with PowerShell's JSON support, and send it:
+25. Mantenha o Uvicorn em execução no Terminal 1.
+26. No Terminal 2, crie uma cópia temporária da requisição fornecida, altere seu request ID e tenant com o suporte JSON do PowerShell, e envie-a:
 
 ```powershell
 $request = Get-Content assets/a2a-request.json -Raw | ConvertFrom-Json
@@ -571,7 +572,7 @@ $request | ConvertTo-Json -Depth 10 | Set-Content artifacts-a2a-request-fabrikam
 python -m src.main send --url http://127.0.0.1:8000/a2a --message artifacts-a2a-request-fabrikam.json
 ```
 
-27. Confirm that Terminal 2 prints this error body and no `response_id`:
+27. Confirme que o Terminal 2 imprime este corpo de erro e nenhum `response_id`:
 
 ```json
 {
@@ -579,39 +580,39 @@ python -m src.main send --url http://127.0.0.1:8000/a2a --message artifacts-a2a-
 }
 ```
 
-28. Confirm that Terminal 1 logs `POST /a2a` with `400 Bad Request`.
-29. Confirm that the rejected request does not create a Foundry trace or return a cross-tenant Cosmos DB result.
-30. Remove the temporary request after the check:
+28. Confirme que o Terminal 1 registra `POST /a2a` com `400 Bad Request`.
+29. Confirme que a requisição rejeitada não cria uma trace no Foundry nem retorna um resultado do Cosmos DB entre locatários.
+30. Remova a requisição temporária após a verificação:
 
 ```powershell
 Remove-Item artifacts-a2a-request-fabrikam.json
 ```
 
-Foundry traces prove accepted model calls, not local discovery, JSON-RPC validation, tenant checks, ETag updates, or conflict resolution. Use HTTP and Cosmos DB evidence for those boundaries. Allow several minutes for trace ingestion. Client-side tracing, KQL, sampling, and alerts are covered in Lab 13.
+Traces do Foundry provam chamadas aceitas ao modelo, não validação local de descoberta, JSON-RPC, checagens de locatário, atualizações com ETag ou resolução de conflitos. Use evidências HTTP e Cosmos DB para esses limites. Permita alguns minutos para ingestão de trace. Tracing do lado do cliente, KQL, amostragem e alertas são cobertos no Lab 13.
 
-## Optional challenge: Resolve a concurrent update
+## Desafio opcional: Resolver uma atualização concorrente
 
-Send two synthetic updates with the same starting ETag but different proposed values.
+Envie duas atualizações sintéticas com o mesmo ETag inicial mas valores propostos diferentes.
 
-**Expected output:** Exactly one update succeeds, one returns a conflict decision, and the audit evidence records both proposed versions without exposing unrelated tenant context.
+**Saída esperada:** Exatamente uma atualização deve ter sucesso, uma deve retornar uma decisão de conflito, e a evidência de auditoria deve registrar ambas as versões propostas sem expor contexto de locatário não relacionado.
 
-**Failure investigation:** Submit a stale ETag and trace the rejection through protocol validation, state access, conflict handling, and audit logging.
+**Investigação de falha:** Envie um ETag obsoleto e trace a rejeição através da validação de protocolo, acesso ao estado, tratamento de conflitos e logging de auditoria.
 
-## Task 7: Review the design
+## Tarefa 7: Revisar o design
 
-Record brief answers:
+Registre respostas breves:
 
-- Why does tenant ownership come from the trusted caller rather than the agent card?
-- Why can the discovery registry expire while the audit container remains durable?
-- How do ETags prevent one agent from silently overwriting another agent's contribution?
-- Which conflict decisions must remain deterministic rather than being delegated to an agent?
+- Por que a propriedade do locatário vem do chamador confiável em vez do agent card?
+- Por que o registro de descoberta pode expirar enquanto o contêiner de auditoria permanece durável?
+- Como ETags impedem que um agente sobrescreva silenciosamente a contribuição de outro agente?
+- Quais decisões de conflito devem permanecer determinísticas em vez de serem delegadas a um agente?
 
-## Task 8: Clean up
+## Tarefa 8: Limpeza
 
-**Remove Azure resources**
+**Remover recursos do Azure**
 
-1. Stop Uvicorn in Terminal 1 by pressing **Ctrl+C**.
-2. Run the following commands in either terminal:
+1. Pare o Uvicorn no Terminal 1 pressionando **Ctrl+C**.
+2. Execute os seguintes comandos em qualquer um dos terminais:
 
 ```powershell
 $env:AZURE_DEV_USER_AGENT='microsoft_foundry_skill'
@@ -619,16 +620,16 @@ azd down --purge --force
 Remove-Item Env:AZURE_DEV_USER_AGENT
 ```
 
-**Deactivate the virtual environment**
+**Desativar o ambiente virtual**
 
-3. Run this command separately in Terminal 1 and Terminal 2 if `(.venv)` appears in their prompts:
+3. Execute este comando separadamente no Terminal 1 e no Terminal 2 se `(.venv)` aparecer em seus prompts:
 
 ```powershell
 deactivate
 ```
 
-4. Confirm that `(.venv)` no longer appears in either terminal before changing to another lab directory.
+4. Confirme que `(.venv)` não aparece mais em nenhum dos terminais antes de mudar para outro diretório de laboratório.
 
-## Summary
+## Resumo
 
-You implemented live A2A discovery and messaging, Cosmos DB shared state, tenant isolation, optimistic concurrency, and durable conflict audits.
+Você implementou descoberta e mensagens A2A ativas, estado compartilhado no Cosmos DB, isolamento por locatário, concorrência otimista e auditorias duráveis de conflito.

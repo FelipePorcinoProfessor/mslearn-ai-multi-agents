@@ -1,41 +1,42 @@
 ---
 lab:
-  title: 'Apply zero trust to a Microsoft Foundry multi-agent workflow'
-  description: 'Secure a Foundry code-review agent graph with identity-scoped access, tenant propagation, lateral-movement prevention, data minimization, and compliance evidence.'
+  title: 'Aplicar zero trust a um fluxo de trabalho multiagente do Microsoft Foundry'
+  description: 'Proteja um grafo de agentes de revisão de código do Foundry com acesso escopado por identidade, propagação de tenant, prevenção de movimento lateral, minimização de dados e evidências de conformidade.'
   duration: 45
   level: 400
   islab: true
   status: 'released'
+layout: default
 ---
 
-# Apply zero trust to a Microsoft Foundry multi-agent workflow
+# Aplicar zero trust a um fluxo de trabalho multiagente do Microsoft Foundry
 
-## Customer scenario
+## Cenário do cliente
 
-Fabrikam's code-review service uses three Microsoft Foundry agents: a review orchestrator, a security scanner, and a compliance agent. The orchestrator can call either specialist. The specialists must not call each other, every handoff must preserve verified tenant context, and the compliance agent must receive metadata rather than proprietary source code.
+O serviço de revisão de código da Fabrikam usa três agentes do Microsoft Foundry: um orquestrador de revisão, um scanner de segurança e um agente de conformidade. O orquestrador pode chamar qualquer um dos especialistas. Os especialistas não podem chamar uns aos outros, cada repasse deve preservar o contexto de tenant verificado e o agente de conformidade deve receber metadados em vez do código-fonte proprietário.
 
-The live implementation creates an OpenAI client for each agent with `get_openai_client(agent_name=...)`. Each response therefore uses that agent's dedicated endpoint instead of a shared project client with `extra_body.agent_reference`.
+A implementação ao vivo cria um OpenAI client para cada agente com `get_openai_client(agent_name=...)`. Cada resposta, portanto, usa o endpoint dedicado desse agente em vez de um cliente de projeto compartilhado com `extra_body.agent_reference`.
 
-## Lab scenario
+## Cenário do laboratório
 
-You will deploy a Foundry project, one model, tenant-partitioned Azure Cosmos DB containers, and Foundry tracing. You will test the agent-call allowlist, tenant boundary, authentication-flow decisions, data minimization, partition isolation, least-privilege role assignments, and compliance evidence. The live run creates and invokes all three agents in Foundry.
+Você implantará um projeto Foundry, um modelo, contêineres do Azure Cosmos DB particionados por tenant e rastreamento do Foundry. Você testará a allowlist de chamadas entre agentes, a fronteira de tenant, as decisões de fluxo de autenticação, a minimização de dados, o isolamento de partições, atribuições de função com privilégio mínimo e evidência de conformidade. A execução ao vivo cria e invoca os três agentes no Foundry.
 
-Foundry hosts the agents; no Docker or container platform knowledge is required. Cosmos DB provides the tenant-partitioned data boundary.
+O Foundry hospeda os agentes; não são necessários conhecimentos de Docker ou plataformas de contêiner. O Cosmos DB fornece a fronteira de dados particionada por tenant.
 
-By the end of this exercise, you will be able to:
+Ao final deste exercício, você será capaz de:
 
-- Apply Foundry agent identity and container-scoped Cosmos DB RBAC without account keys.
-- Select managed identity, OBO, OAuth2 with PKCE, or Key Vault fallback for a given operation.
-- Permit only approved edges in an agent graph and deny specialist-to-specialist lateral movement.
-- Propagate and enforce tenant context before an agent call or data access.
-- Minimize data for each specialist and write tenant-scoped audit evidence.
-- Distinguish controls executed in this classroom topology from required production controls.
+- Aplicar identidade de agente do Foundry e RBAC do Cosmos DB escopado por contêiner sem chaves de conta.
+- Selecionar managed identity, OBO, OAuth2 com PKCE ou fallback para Key Vault para uma dada operação.
+- Permitir apenas arestas aprovadas em um grafo de agentes e negar movimento lateral entre especialistas.
+- Propagar e aplicar o contexto de tenant antes de uma chamada de agente ou acesso a dados.
+- Minimizar os dados para cada especialista e gravar evidência de auditoria escopada por tenant.
+- Distinguir controles executados nesta topologia de sala de aula dos controles exigidos em produção.
 
-> **Important:** Foundry model calls, Cosmos DB, and Application Insights are billable. Use only the supplied synthetic data and run `azd down --purge` after validation.
+> **Importante:** chamadas de modelo do Foundry, Cosmos DB e Application Insights são cobradas. Use apenas os dados sintéticos fornecidos e execute `azd down --purge` após a validação.
 
-## Task 1: Prepare the lab
+## Tarefa 1: Preparar o laboratório
 
-**Review the architecture**
+**Revisar a arquitetura**
 
 ```mermaid
 flowchart LR
@@ -48,28 +49,28 @@ flowchart LR
     O --> AI[Application Insights traces]
 ```
 
-> **Important - residual network trust:** The Bicep template enables native public network access for Foundry and Cosmos DB so the local Python client can reach both data-plane endpoints. Microsoft Entra authentication, disabled local keys, tenant checks, and scoped RBAC reduce identity and authorization risk, but they do not remove trust in the public network path.
+> **Importante - confiança residual na rede:** o template Bicep habilita acesso nativo pela rede pública para Foundry e Cosmos DB para que o cliente Python local possa alcançar ambos os endpoints do plano de dados. A autenticação Microsoft Entra, chaves locais desativadas, verificações de tenant e RBAC escopado reduzem o risco de identidade e autorização, mas não eliminam a confiança no caminho de rede pública.
 
-You need:
+Você precisa de:
 
-- An Azure subscription and assigned resource group where you can deploy the lab resources. You do not need tenant-level or subscription-level role-management permissions.
+- Uma assinatura do Azure e um resource group atribuído onde você pode implantar os recursos do laboratório. Você não precisa de permissões de gerenciamento de função em nível de tenant ou assinatura.
 - [Python 3.10 or later](https://www.python.org/downloads/).
 - [Git](https://git-scm.com/downloads).
 - [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli).
 - [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd).
 - [Visual Studio Code](https://code.visualstudio.com/download).
-- The VS Code [Python extension](https://marketplace.visualstudio.com/items?itemName=ms-python.python).
-- The VS Code [Bicep extension](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-bicep).
+- A extensão VS Code [Python extension](https://marketplace.visualstudio.com/items?itemName=ms-python.python).
+- A extensão VS Code [Bicep extension](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-bicep).
 
-1. If you haven't already done so, clone the [lab source repository](https://github.com/MicrosoftLearning/mslearn-ai-multi-agents/tree/main), or fork the repository and clone your fork:
+1. Se ainda não fez, clone o [repositório de origem do laboratório](https://github.com/MicrosoftLearning/mslearn-ai-multi-agents/tree/main), ou faça um fork do repositório e clone seu fork:
 
 ```console
 git clone https://github.com/MicrosoftLearning/mslearn-ai-multi-agents.git
 ```
 
-2. Open the cloned repository in Visual Studio Code.
-3. Change to the starter directory.
-4. Validate the required tools from the VS Code terminal:
+2. Abra o repositório clonado no Visual Studio Code.
+3. Mude para o diretório starter.
+4. Valide as ferramentas requeridas a partir do terminal do VS Code:
 
 ```powershell
 cd Allfiles\10-fabrikam-zero-trust-security
@@ -78,8 +79,8 @@ azd version
 python --version
 ```
 
-5. Sign in with Azure CLI and Azure Developer CLI.
-6. Confirm the subscription you intend to use:
+5. Faça login com Azure CLI e Azure Developer CLI.
+6. Confirme a assinatura que você pretende usar:
 
 ```powershell
 az login
@@ -87,44 +88,44 @@ az account show --output table
 azd auth login
 ```
 
-7. Use only the supplied synthetic data.
-8. Do not add keys, connection strings, tokens, or customer source code to the starter files.
+7. Use apenas os dados sintéticos fornecidos.
+8. Não adicione chaves, connection strings, tokens ou código-fonte do cliente aos arquivos iniciais.
 
-## Task 2: Build the virtual environment
+## Tarefa 2: Montar o ambiente virtual
 
-1. On Windows, create and activate an isolated Python environment:
+1. No Windows, crie e ative um ambiente Python isolado:
 
 ```powershell
 ./scripts/setup.ps1
 . ./.venv/Scripts/Activate.ps1
 ```
 
-> On macOS/Linux, run `bash scripts/setup.sh` and `source .venv/bin/activate` instead.
+> No macOS/Linux, execute `bash scripts/setup.sh` e `source .venv/bin/activate` em vez disso.
 
-## Task 3: Enforce tenant-aware agent handoffs
+## Tarefa 3: Aplicar repasses de agentes cientes do tenant
 
-Implement tenant matching, then test it alongside the supplied agent-call allowlist and payload minimization.
+Implemente a correspondência de tenant e teste-a junto com a allowlist de chamadas entre agentes e a minimização de payload fornecidas.
 
-Each placeholder marks incomplete code. Copy each supplied snippet into its placeholder location, keep the `LAB PLACEHOLDER` comment, replace only the indicated incomplete line or block, and preserve the surrounding indentation.
+Cada placeholder marca código incompleto. Copie cada trecho fornecido para o local do placeholder, mantenha o comentário `LAB PLACEHOLDER`, substitua apenas a linha ou bloco incompleto indicado, e preserve a indentação ao redor.
 
-The synthetic `verifiedCaller` values represent claims already authenticated at an API boundary through token signature, issuer, audience, and expiry checks. Your code authorizes that caller's actions. Never authorize a production request from an unverified JWT payload.
+Os valores sintéticos `verifiedCaller` representam claims já autenticados em uma fronteira de API por meio de verificações de assinatura do token, issuer, audience e expiry. Seu código autoriza as ações desse chamador. Nunca autorize uma requisição de produção a partir de um payload JWT não verificado.
 
-**Review the handoff policy**
+**Revisar a política de repasse**
 
-1. Before editing the code, open the following files and trace how the four synthetic handoff requests are evaluated. You do not need to modify these files or record written answers.
+1. Antes de editar o código, abra os arquivos a seguir e trace como as quatro tentativas sintéticas de repasse são avaliadas. Você não precisa modificar esses arquivos nem registrar respostas por escrito.
 
-- `assets/security-policy.json` defines the permitted agent-call graph. Only `review-orchestrator` can call the two specialists.
-- `assets/security-requests.json` contains four synthetic handoff attempts.
-- `src/security.py` applies tenant validation, call-graph authorization, payload minimization, and authentication-flow selection.
+- `assets/security-policy.json` define o grafo de chamadas permitidas entre agentes. Somente `review-orchestrator` pode chamar os dois especialistas.
+- `assets/security-requests.json` contém quatro tentativas sintéticas de repasse.
+- `src/security.py` aplica validação de tenant, autorização de grafo de chamadas, minimização de payload e seleção de fluxo de autenticação.
 
-For each request, identify whether the tenant matches, whether the caller may invoke the target agent, and which fields the target agent needs. You will implement the missing tenant-validation check in the next section; the other controls are already provided.
+Para cada requisição, identifique se o tenant corresponde, se o chamador pode invocar o agente alvo e quais campos o agente alvo precisa. Você implementará a checagem de validação de tenant ausente na próxima seção; os outros controles já estão providos.
 
-**Complete tenant authorization**
+**Completar a autorização de tenant**
 
-2. Open `src/security.py`.
-3. Find **LAB PLACEHOLDER 1** in `enforce_tenant`.
-4. Keep the placeholder comment.
-5. Replace only the `raise NotImplementedError` line with:
+2. Abra `src/security.py`.
+3. Localize **LAB PLACEHOLDER 1** em `enforce_tenant`.
+4. Mantenha o comentário do placeholder.
+5. Substitua apenas a linha `raise NotImplementedError` por:
 
 ```python
 if not requested_tenant_id:
@@ -133,38 +134,38 @@ if requested_tenant_id != verified_tenant_id:
   raise PermissionError("Tenant context does not match the verified caller")
 ```
 
-This code fails closed: a missing tenant and a mismatched tenant are both denied before another agent is called.
+Este código falha fechado: um tenant ausente e um tenant incompatível são ambos negados antes que outro agente seja chamado.
 
-**Validate the authorization decisions**
+**Validar as decisões de autorização**
 
-6. Run the scenarios and display one row for each handoff:
+6. Execute os cenários e exiba uma linha para cada repasse:
 
 ```powershell
 $evidence = python -m src.main | ConvertFrom-Json
 $evidence.decisions | Format-Table case, decision, target, reason
 ```
 
-7. Compare the rows with the expected results:
+7. Compare as linhas com os resultados esperados:
 
-| Case | Expected result | Why |
+| Caso | Resultado esperado | Motivo |
 |---|---|---|
-| `allowed-orchestrator-to-scanner` | `allow` | The tenant matches and the call graph permits orchestrator to scanner. |
-| `denied-cross-tenant` | `deny` with a tenant-mismatch reason | The request asks for `tenant-b`, but the verified caller belongs to `tenant-a`. |
-| `denied-specialist-lateral-movement` | `deny` with an agent-call reason | The tenant matches, but the call graph does not permit scanner to compliance agent. |
-| `allowed-minimized-compliance-handoff` | `allow` | The tenant matches and the call graph permits orchestrator to compliance agent. |
+| `allowed-orchestrator-to-scanner` | `allow` | O tenant corresponde e o grafo de chamadas permite orquestrador chamar scanner. |
+| `denied-cross-tenant` | `deny` com motivo de incompatibilidade de tenant | A requisição pede `tenant-b`, mas o chamador verificado pertence a `tenant-a`. |
+| `denied-specialist-lateral-movement` | `deny` com motivo de chamada de agente | O tenant corresponde, mas o grafo de chamadas não permite que scanner chame o agente de conformidade. |
+| `allowed-minimized-compliance-handoff` | `allow` | O tenant corresponde e o grafo de chamadas permite orquestrador chamar o agente de conformidade. |
 
-The cross-tenant request fails `enforce_tenant`. The lateral-movement request passes tenant validation but fails `authorize_handoff`'s call-graph check.
+A requisição entre tenants falha `enforce_tenant`. A requisição de movimento lateral passa na validação de tenant, mas falha na checagem do grafo de chamadas de `authorize_handoff`.
 
-**Validate data minimization**
+**Validar a minimização de dados**
 
-8. Inspect what the allowed compliance handoff forwards:
+8. Inspecione o que o repasse permitido para conformidade encaminha:
 
 ```powershell
 $complianceDecision = $evidence.decisions | Where-Object case -eq 'allowed-minimized-compliance-handoff'
 $complianceDecision.fieldsForwarded
 ```
 
-Expected output:
+Saída esperada:
 
 ```text
 consentRecorded
@@ -174,19 +175,19 @@ requestId
 tenantId
 ```
 
-`sourceCode` must not appear. The compliance agent needs classification, residency, consent, request, and tenant metadata, but it does not need Fabrikam's source code.
+`sourceCode` não deve aparecer. O agente de conformidade precisa de classification, residency, consent, request e metadados de tenant, mas não precisa do código-fonte da Fabrikam.
 
-**Review authentication-flow selection**
+**Rever a seleção de fluxo de autenticação**
 
-The supplied code selects an authentication flow; you do not implement OAuth exchanges.
+O código fornecido seleciona um fluxo de autenticação; você não implementa trocas OAuth.
 
-9. Display the decisions made by `select_authentication_flow`:
+9. Exiba as decisões feitas por `select_authentication_flow`:
 
 ```powershell
 $evidence.authenticationFlows | Format-List
 ```
 
-Expected output:
+Saída esperada:
 
 ```text
 agentToAzure            : managed_identity
@@ -195,16 +196,16 @@ userToThirdParty        : oauth2_pkce
 legacyApi               : key_vault_fallback
 ```
 
-- `managed_identity` avoids stored credentials for agent-to-Azure access.
-- `on_behalf_of` preserves a user's delegated permissions for a Microsoft resource.
-- `oauth2_pkce` supports interactive third-party authorization without a client secret in the application.
-- `key_vault_fallback` permits a legacy key only when Key Vault storage and the 90-day rotation policy are satisfied.
+- `managed_identity` evita credenciais armazenadas para acesso de agente a recursos do Azure.
+- `on_behalf_of` preserva as permissões delegadas de um usuário para um recurso Microsoft.
+- `oauth2_pkce` suporta autorização interativa de terceiros sem um client secret na aplicação.
+- `key_vault_fallback` permite uma chave legada somente quando o armazenamento em Key Vault e a política de rotação de 90 dias são satisfeitas.
 
-These are deterministic policy selections, not four live authentication exchanges.
+Estas são seleções de política determinísticas, não quatro trocas de autenticação ao vivo.
 
-**Confirm the local controls**
+**Confirmar os controles locais**
 
-10. Run the checks:
+10. Execute as verificações:
 
 ```powershell
 $actualDecisions = $evidence.decisions.decision -join ','
@@ -226,13 +227,13 @@ if ($incomplete) { throw 'Task 1 is incomplete' }
 'TASK_1_VALIDATION_PASSED'
 ```
 
-Expected output: preflight ends with `READY (local)`, followed by `TASK_1_VALIDATION_PASSED`.
+Saída esperada: o preflight termina com `READY (local)`, seguido por `TASK_1_VALIDATION_PASSED`.
 
-## Task 4: Provision the Foundry topology
+## Tarefa 4: Provisionar a topologia do Foundry
 
-1. Set the region to one where the selected model is available.
-2. > **Resource group:** If your lab environment provides a precreated resource group, set `$resourceGroupName` to its name. Otherwise, leave `$resourceGroupName` empty so the script creates a unique resource group in your subscription.
-3. Run the following commands:
+1. Defina a região para uma onde o modelo selecionado esteja disponível.
+2. > **Grupo de recursos:** Se seu ambiente de laboratório fornecer um grupo de recursos pré-criado, defina `$resourceGroupName` com seu nome. Caso contrário, deixe `$resourceGroupName` vazio para que o script crie um resource group único em sua assinatura.
+3. Execute os comandos a seguir:
 
 ```powershell
 $azureRegion = 'eastus2'
@@ -258,13 +259,13 @@ Remove-Item Env:AZURE_DEV_USER_AGENT
 python scripts/preflight.py
 ```
 
-Expected output: Bicep compiles, provisioning succeeds, and preflight ends with `READY (local)`. The `.env` file contains Foundry, Cosmos DB, and monitoring coordinates but no keys, connection strings, or tokens. The default deployment still has residual network trust because its Foundry and Cosmos DB public endpoints are enabled for local lab access.
+Saída esperada: o Bicep compila, o provisionamento é bem-sucedido e o preflight termina com `READY (local)`. O arquivo `.env` contém as coordenadas do Foundry, Cosmos DB e monitoramento, mas sem chaves, connection strings ou tokens. A implantação padrão ainda tem confiança residual na rede porque seus endpoints públicos do Foundry e do Cosmos DB estão habilitados para acesso local do laboratório.
 
-> **Production network design:** This lab does not create private endpoints, private DNS, or private runtime connectivity. Foundry managed-network outbound modes also have creation-time constraints, so choose and validate the production access model before creating production resources. See [Configure managed virtual network for Microsoft Foundry projects](https://learn.microsoft.com/azure/foundry/how-to/managed-virtual-network#understand-isolation-modes).
+> **Design de rede para produção:** Este laboratório não cria private endpoints, private DNS ou conectividade runtime privada. Os modos managed-network do Foundry também têm restrições em tempo de criação, então escolha e valide o modelo de acesso de produção antes de criar recursos em produção. Consulte [Configurar rede virtual gerenciada para projetos Microsoft Foundry](https://learn.microsoft.com/azure/foundry/how-to/managed-virtual-network#understand-isolation-modes).
 
-## Task 5: Review the least-privilege design
+## Tarefa 5: Revisar o design de privilégio mínimo
 
-1. Inspect the declared controls and the effective deployed network and data-plane RBAC boundaries:
+1. Inspecione os controles declarados e as fronteiras efetivas de rede e RBAC do plano de dados implantadas:
 
 ```powershell
 Select-String -Path infra/main.bicep -Pattern 'disableLocalAuth: true'
@@ -286,44 +287,44 @@ $cosmosNetwork
 $learnerDataRoles | Select-Object principalId, scope
 ```
 
-2. Confirm all of the following boundaries:
+2. Confirme todos os seguintes limites:
 
-- Foundry and Cosmos DB both set `disableLocalAuth: true`, so applications cannot use service keys.
-- Foundry reports `publicNetworkAccess: Enabled` and `defaultAction: Allow`, and Cosmos DB reports `publicNetworkAccess: Enabled`. Record this as residual sandbox network trust, not as zero network trust.
-- Exactly two Cosmos DB assignments for `$principalId` end at `/colls/tenant-policies` and `/colls/security-audit`; neither assignment is account-, resource-group-, or subscription-scoped.
-- The effective principal IDs and scopes match the identity and containers used by the live workflow.
+- Foundry e Cosmos DB ambos definem `disableLocalAuth: true`, então aplicações não podem usar service keys.
+- O Foundry reporta `publicNetworkAccess: Enabled` e `defaultAction: Allow`, e o Cosmos DB reporta `publicNetworkAccess: Enabled`. Registre isto como confiança residual na rede do sandbox, não como confiança zero na rede.
+- Exatamente duas atribuições do Cosmos DB para `$principalId` terminam em `/colls/tenant-policies` e `/colls/security-audit`; nenhuma atribuição é em escopo de conta, resource group ou assinatura.
+- Os IDs de principal efetivos e os escopos correspondem à identidade e aos contêineres usados pelo fluxo de trabalho ao vivo.
 
-If any effective setting or assignment differs from the declared design, stop and resolve the deployment drift before the live run. Do not treat a successful authenticated request as proof that the network or RBAC boundary is least privilege.
+Se qualquer configuração ou atribuição efetiva difere do design declarado, pare e resolva a deriva da implantação antes da execução ao vivo. Não trate uma requisição autenticada bem-sucedida como prova de que o limite de rede ou RBAC é privilégio mínimo.
 
-The project resource also has a managed identity. It authenticates the project's agent identity blueprint; it is not the principal that should receive downstream tool permissions. Foundry creates a separate shared agent identity after the first agent is created.
+O recurso do projeto também tem uma managed identity. Ela autentica a blueprint de identidade do agente do projeto; não é o principal que deve receber permissões de ferramentas downstream. O Foundry cria uma identidade de agente compartilhada separada após o primeiro agente ser criado.
 
-## Task 6: Run the live Foundry workflow
+## Tarefa 6: Executar o fluxo de trabalho ao vivo do Foundry
 
-1. Run the three-agent workflow and retain its structured output:
+1. Execute o fluxo de trabalho com três agentes e retenha sua saída estruturada:
 
 ```powershell
 $liveEvidence = python -m src.main --live | ConvertFrom-Json
 $liveEvidence | ConvertTo-Json -Depth 10
 ```
 
-Expected output:
+Saída esperada:
 
-- Foundry versions exist for `review-orchestrator`, `security-scanner`, and `compliance-agent`.
-- Both specialist outputs include a Foundry response ID.
-- The orchestrator produces a synthesis response.
-- `crossTenantHandoffDenied` is `true` because the verified tenant B caller cannot request a tenant A handoff. The denial occurs before any Cosmos DB, model, or tool call.
-- The audit event contains `tenantId`, `agentId`, `action`, `decision`, and `correlationId`.
+- Existem Foundry versions para `review-orchestrator`, `security-scanner` e `compliance-agent`.
+- As saídas de ambos os especialistas incluem um Foundry response ID.
+- O orquestrador produz uma resposta de síntese.
+- `crossTenantHandoffDenied` é `true` porque o chamador verificado do tenant B não pode requisitar um repasse para tenant A. A negação ocorre antes de qualquer chamada ao Cosmos DB, modelo ou ferramenta.
+- O evento de auditoria contém `tenantId`, `agentId`, `action`, `decision` e `correlationId`.
 
-The Python process uses your `DefaultAzureCredential` for Cosmos DB access and Foundry project access during this interactive run. A `403` response indicates that provisioning did not establish the required access.
+O processo Python usa seu `DefaultAzureCredential` para acesso ao Cosmos DB e acesso ao projeto Foundry durante esta execução interativa. Uma resposta `403` indica que o provisionamento não estabeleceu o acesso requerido.
 
-2. If you receive a `403` response, report the deployment error to the instructor.
-3. Do not attempt to create or inspect role assignments manually.
+2. Se você receber uma resposta `403`, reporte o erro de implantação ao instrutor.
+3. Não tente criar ou inspecionar atribuições de função manualmente.
 
-The prompt agents created by this run do not directly call Cosmos DB. If a production agent later uses an MCP or A2A tool to access Cosmos DB, an administrator must grant that agent's `agentIdentityId` only the container access required by the tool. Publishing an agent creates a distinct identity, and permissions assigned to the shared development identity do not transfer automatically.
+Os agentes de prompt criados por esta execução não chamam diretamente o Cosmos DB. Se um agente de produção posteriormente usar uma ferramenta MCP ou A2A para acessar o Cosmos DB, um administrador deve conceder ao `agentIdentityId` desse agente apenas o acesso ao contêiner requerido pela ferramenta. Publicar um agente cria uma identidade distinta, e permissões atribuídas à identidade de desenvolvimento compartilhada não são transferidas automaticamente.
 
-## Task 7: Inspect tenant and compliance evidence
+## Tarefa 7: Inspecionar evidências de tenant e conformidade
 
-1. Display the response IDs created by the live run:
+1. Exiba os response IDs criados pela execução ao vivo:
 
 ```powershell
 $liveEvidence.specialistOutputs.'security-scanner'.responseId
@@ -331,24 +332,24 @@ $liveEvidence.specialistOutputs.'compliance-agent'.responseId
 $liveEvidence.orchestratorOutput.responseId
 ```
 
-2. In the Foundry portal, open the project identified by `FOUNDRY_PROJECT_ENDPOINT`.
-3. Open **Agents** > **Traces**.
-4. Allow a few minutes for trace ingestion if necessary.
-5. Find the three calls by matching the response IDs.
-6. Inspect each call's input and output.
+2. No portal do Foundry, abra o projeto identificado por `FOUNDRY_PROJECT_ENDPOINT`.
+3. Abra **Agentes (Agents)** > **Rastreamentos (Traces)**.
+4. Aguarde alguns minutos para ingestão dos traces, se necessário.
+5. Encontre as três chamadas correspondendo aos response IDs.
+6. Inspecione a entrada e a saída de cada chamada.
 
-The live run uses the first supplied request, so `tenant-a` and `req-001` are the only expected tenant and request identifiers in these traces.
+A execução ao vivo usa a primeira requisição fornecida, então `tenant-a` e `req-001` são os únicos identificadores de tenant e requisição esperados nesses traces.
 
-7. Confirm that:
+7. Confirme que:
 
-- No real tenant GUID, tenant domain, user identifier, repository name, or customer source code appears.
-- The security-scanner input contains only the supplied synthetic source, `print('synthetic')`.
-- The compliance-agent input contains the request, tenant, region, classification, and consent metadata, but no `sourceCode` field.
-- The orchestrator input contains `tenant-a`, `req-001`, and the two specialist results.
+- Nenhum GUID de tenant real, domínio de tenant, identificador de usuário, nome de repositório ou código-fonte do cliente aparece.
+- A entrada do security-scanner contém apenas o código sintético fornecido, `print('synthetic')`.
+- A entrada do compliance-agent contém a requisição, tenant, região, classificação e metadados de consentimento, mas nenhum campo `sourceCode`.
+- A entrada do orquestrador contém `tenant-a`, `req-001` e os resultados dos dois especialistas.
 
-`tenant-b` should not appear in a Foundry agent trace. The application rejects the mismatched verified tenant before any agent or data-plane call.
+`tenant-b` não deve aparecer em um trace de agente do Foundry. A aplicação rejeita o tenant verificado incompatível antes de qualquer chamada ao agente ou ao plano de dados.
 
-8. Inspect the tenant and audit evidence returned by the live run without opening Cosmos DB Data Explorer:
+8. Inspecione as evidências de tenant e auditoria retornadas pela execução ao vivo sem abrir o Explorador de Dados (Data Explorer) do Cosmos DB:
 
 ```powershell
 $liveEvidence.tenantPolicy | Format-List
@@ -362,30 +363,31 @@ if ($liveEvidence.auditEvent.PSObject.Properties['sourceCode']) { throw 'Audit e
 'TENANT_AND_AUDIT_EVIDENCE_VALIDATED'
 ```
 
-Expect `TENANT_AND_AUDIT_EVIDENCE_VALIDATED`: the policy belongs to `tenant-a`, and the audit event has all required fields and no source code. This verifies data-plane behavior without RBAC enumeration or portal browsing permissions.
+Espere `TENANT_AND_AUDIT_EVIDENCE_VALIDATED`: a política pertence a `tenant-a`, e o evento de auditoria tem todos os campos requeridos e nenhum código-fonte. Isto verifica o comportamento do plano de dados sem enumeração de RBAC ou permissões de navegação no portal.
 
-9. Run the deterministic security scenarios again after any policy change:
+9. Execute novamente os cenários de segurança determinísticos após qualquer alteração de política:
 
 ```powershell
 python -m src.main
 ```
 
-Expected output: the production-control failure list remains empty and the decision sequence remains `allow`, `deny`, `deny`, `allow`.
+Saída esperada: a lista de falhas de controle de produção permanece vazia e a sequência de decisão permanece `allow`, `deny`, `deny`, `allow`.
 
-10. Treat a changed cross-tenant, lateral-movement, minimization, authentication-flow, network-contract, or audit-schema result as a release blocker.
+10. Trate uma alteração em qualquer resultado de cross-tenant, movimento lateral, minimização, fluxo de autenticação, contrato de rede ou esquema de auditoria como um bloqueador de release.
 
-## Optional challenge: Deny a cross-tenant handoff
+## Desafio opcional: Negar um repasse entre tenants
 
-Submit a request whose requested tenant differs from the verified caller tenant.
+Submeta uma requisição cujo tenant solicitado difere do tenant do chamador verificado.
 
-**Expected output:** The handoff is denied before any Cosmos DB, model, or tool call, and the evidence identifies the tenant-policy decision.
+**Saída esperada:** O repasse é negado antes de qualquer chamada ao Cosmos DB, modelo ou ferramenta, e a evidência identifica a decisão da política de tenant.
 
-**Failure investigation:** Compare identity, network, tenant-policy, and data-partition failures and state which evidence distinguishes each boundary.
-## Task 8: Clean up
+**Investigação de falha:** Compare falhas de identidade, rede, política de tenant e partição de dados e indique qual evidência distingue cada fronteira.
 
-**Remove Azure resources**
+## Tarefa 8: Limpeza
 
-1. Run the following commands:
+**Remover recursos do Azure**
+
+1. Execute os comandos a seguir:
 
 ```powershell
 $env:AZURE_DEV_USER_AGENT = 'microsoft_foundry_skill'
@@ -394,14 +396,14 @@ Remove-Item Env:AZURE_DEV_USER_AGENT
 Remove-Item .env -ErrorAction SilentlyContinue
 ```
 
-**Deactivate the virtual environment**
+**Desativar o ambiente virtual**
 
-2. Run this command in every terminal where `(.venv)` appears in the prompt:
+2. Execute este comando em todo terminal onde `(.venv)` apareça no prompt:
 
 ```powershell
 deactivate
 ```
 
-## Summary
+## Resumo
 
-You applied tenant-aware authorization, minimized handoffs, scoped access, and audit controls to a live Foundry workflow, while distinguishing deployed controls from production network and identity requirements.
+Você aplicou autorização ciente de tenant, minimizou repasses, escopou acessos e controles de auditoria a um fluxo de trabalho Foundry ao vivo, enquanto distinguiu controles implantados dos requisitos de rede e identidade em produção.

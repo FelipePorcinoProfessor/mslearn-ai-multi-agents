@@ -1,53 +1,54 @@
 ---
 lab:
-  title: 'Build an enterprise MCP tool ecosystem'
-  description: 'Implement, discover, invoke, and govern clinical tools through a real MCP server and client.'
+  title: 'Construir um ecossistema corporativo de ferramentas MCP'
+  description: 'Implemente, descubra, invoque e governe ferramentas clínicas por meio de um servidor e cliente MCP real.'
   duration: 45
   level: 400
   islab: true
   status: 'released'
+layout: default
 ---
 
-# Build an enterprise MCP tool ecosystem
+# Construir um ecossistema corporativo de ferramentas MCP
 
-## Customer scenario
+## Cenário do cliente
 
-Northwind Health is replacing agent-specific integrations with a governed clinical tool catalog. The first release exposes synthetic drug-interaction and appointment-capacity tools through Model Context Protocol (MCP), records correlation-safe telemetry, and gives clients a reliable fallback when a dependency is unavailable.
+Northwind Health está substituindo integrações específicas de agentes por um catálogo de ferramentas clínicas governado. A primeira versão expõe ferramentas sintéticas de interação medicamentosa e capacidade de agendamento por meio do Model Context Protocol (MCP), registra telemetria segura para correlação e fornece aos clientes um fallback confiável quando uma dependência não está disponível.
 
-## Lab scenario
+## Cenário do laboratório
 
-You are the Python developer responsible for the MCP boundary. You will complete a FastMCP server, implement an MCP client that discovers tools at runtime, select a compatible tool from catalog metadata, validate tool results, and exercise fallback behavior. The server uses synthetic data and must not be used for clinical decisions.
+Você é o desenvolvedor Python responsável pela fronteira MCP. Você completará um servidor FastMCP, implementará um cliente MCP que descobre ferramentas em tempo de execução, selecionará uma ferramenta compatível a partir dos metadados do catálogo, validará os resultados da ferramenta e exercitará o comportamento de fallback. O servidor usa dados sintéticos e não deve ser usado para decisões clínicas.
 
-<!-- LAB DIAGRAM PLACEHOLDER: Show MCP discovery, catalog selection, tool invocation, result validation, and governed fallback. -->
+<!-- DIAGRAMA DO LAB - ESPAÇO RESERVADO: Mostrar descoberta MCP, seleção de catálogo, invocação de ferramenta, validação de resultados e fallback governado. -->
 
-By the end of this exercise, you will be able to:
+Ao final deste exercício, você será capaz de:
 
-- Build a custom MCP server with versioned tools, structured errors, and scrubbed telemetry.
-- Use a real MCP client session to initialize a connection, discover tools, and invoke a selected tool.
-- Validate tool results and route failures to a safe fallback pipeline.
-- Apply catalog versioning, dependency, and deprecation metadata to tool selection.
+- Construir um servidor MCP personalizado com ferramentas versionadas, erros estruturados e telemetria depurada.
+- Usar uma sessão real de cliente MCP para inicializar uma conexão, descobrir ferramentas e invocar uma ferramenta selecionada.
+- Validar resultados de ferramentas e direcionar falhas para um pipeline de fallback seguro.
+- Aplicar versionamento de catálogo, dependência e metadados de descontinuação à seleção de ferramentas.
 
-> **Important**: Azure Container Apps and Log Analytics are billable. Complete the local protocol tasks first, and run `azd down --purge` immediately after lab completion to save on Azure costs.
+> **Importante**: Azure Container Apps e Log Analytics geram cobrança. Complete primeiro as tarefas do protocolo local e execute `azd down --purge` imediatamente após a conclusão do laboratório para economizar custos no Azure.
 
-> **Important - Docker is required:** Install and start [Docker Desktop](https://docs.docker.com/desktop/) on Windows/macOS or Docker Engine on Linux. Local MCP exercises run in Python, but `azd deploy` builds the container locally from the lab's `Dockerfile`. Provisioning alone does not satisfy this requirement.
+> **Importante - Docker é necessário:** Instale e inicie [Docker Desktop](https://docs.docker.com/desktop/) no Windows/macOS ou Docker Engine no Linux. Os exercícios MCP locais são executados em Python, mas `azd deploy` constrói o contêiner localmente a partir do `Dockerfile` do laboratório. Somente o provisionamento não satisfaz este requisito.
 
-## Task 1: Prepare the lab
+## Tarefa 1: Preparar o laboratório
 
-You need [Python 3.11 or later](https://www.python.org/downloads/), [Git](https://git-scm.com/downloads), [Visual Studio Code](https://code.visualstudio.com/download), [Docker Desktop or Docker Engine](https://docs.docker.com/get-docker/), [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd), and the VS Code [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python) and [Bicep](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-bicep) extensions. For Azure work, you need a precreated resource group or permission to create one, plus permission to create a Log Analytics workspace, a Container Apps environment, and a Container App. Use only the synthetic assets supplied with this lab.
+Você precisa de [Python 3.11 or later](https://www.python.org/downloads/), [Git](https://git-scm.com/downloads), [Visual Studio Code](https://code.visualstudio.com/download), [Docker Desktop or Docker Engine](https://docs.docker.com/get-docker/), [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd) e as extensões do VS Code [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python) e [Bicep](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-bicep). Para trabalho no Azure, você precisa de um resource group pré-criado ou permissão para criar um, além de permissão para criar um Log Analytics workspace, um Container Apps environment e um Container App. Use apenas os artefatos sintéticos fornecidos com este laboratório.
 
-**Clone and open the repository**
+**Clonar e abrir o repositório**
 
-1. If you haven't already done so, clone the [lab source repository](https://github.com/MicrosoftLearning/mslearn-ai-multi-agents/tree/main), or fork the repository and clone your fork:
+1. Se ainda não fez, clone o [lab source repository](https://github.com/MicrosoftLearning/mslearn-ai-multi-agents/tree/main), ou faça um fork do repositório e clone seu fork:
 
 ```console
 git clone https://github.com/MicrosoftLearning/mslearn-ai-multi-agents.git
 ```
 
-2. Open the cloned repository in Visual Studio Code.
+2. Abra o repositório clonado no Visual Studio Code.
 
-**Verify tools and authentication**
+**Verificar ferramentas e autenticação**
 
-3. Validate the required tools, credentials, and active subscription from the VS Code terminal:
+3. Valide as ferramentas necessárias, credenciais e assinatura ativa a partir do terminal do VS Code:
 
 ```powershell
 cd Allfiles\06-northwind-health-mcp-tools
@@ -59,47 +60,47 @@ docker info
 az account show --output table
 ```
 
-4. Confirm that `docker --version` finds the client and `docker info` reaches the running engine.
-5. If `docker info` fails on Windows or macOS, start Docker Desktop and wait until the engine is ready before continuing.
+4. Confirme que `docker --version` encontra o cliente e `docker info` alcança o engine em execução.
+5. Se `docker info` falhar no Windows ou macOS, inicie o Docker Desktop e aguarde até que o engine esteja pronto antes de continuar.
 
-6. Use your signed-in Azure identity. Every remote client obtains an access token with `DefaultAzureCredential`; the client permits an omitted token only for `localhost` or `127.0.0.1`.
-7. Do not add API keys, passwords, patient identifiers, or access tokens to `.env`.
+6. Use sua identidade Azure autenticada. Todo cliente remoto obtém um token de acesso com `DefaultAzureCredential`; o cliente permite um token omitido apenas para `localhost` ou `127.0.0.1`.
+7. Não adicione chaves de API, senhas, identificadores de pacientes ou tokens de acesso em `.env`.
 
-**Architecture checkpoint**
+**Ponto de verificação de arquitetura**
 
-Review `infra/main.bicep`, `azure.yaml`, the JSON assets, and these implementation surfaces:
+Revise `infra/main.bicep`, `azure.yaml`, os ativos JSON e estas superfícies de implementação:
 
-| File | Learner implementation |
+| Arquivo | Implementação do aluno |
 |---|---|
-| `src/server.py` | Complete both MCP tool handlers and safe fallback responses. |
-| `src/client.py` | Initialize the MCP session, discover tools, and invoke the selected tool. |
-| `src/catalog.py` | Filter discovered tools by active lifecycle and matching required major version. |
-| `src/result_validation.py` | Validate returned structured content against the catalog schema. |
+| `src/server.py` | Complete ambos os MCP tool handlers e as respostas de fallback seguras. |
+| `src/client.py` | Inicialize a sessão MCP, descubra ferramentas e invoque a ferramenta selecionada. |
+| `src/catalog.py` | Filtre as ferramentas descobertas por lifecycle ativo e pelo major version requerido correspondente. |
+| `src/result_validation.py` | Valide o conteúdo estruturado retornado contra o schema do catálogo. |
 
-Before continuing, confirm that the request path is `MCP discovery -> catalog selection -> tool invocation -> result validation -> governed fallback`, and distinguish the local checks from the deployed Container App checks.
+Antes de continuar, confirme que o caminho da requisição é `MCP discovery -> catalog selection -> tool invocation -> result validation -> governed fallback` e distinga as verificações locais das verificações do Container App implantado.
 
-## Task 2: Build the virtual environment
+## Tarefa 2: Criar o ambiente virtual
 
-1. From the lab root, create and activate the virtual environment:
+1. A partir do root do laboratório, crie e ative o ambiente virtual:
 
 ```powershell
 ./scripts/setup.ps1
 . ./.venv/Scripts/Activate.ps1
 ```
 
-> On macOS/Linux, run `bash scripts/setup.sh` and `source .venv/bin/activate` instead.
+> No macOS/Linux, execute `bash scripts/setup.sh` e `source .venv/bin/activate` em vez disso.
 
-## Task 3: Implement the solution
+## Tarefa 3: Implementar a solução
 
-Each placeholder marks incomplete code. Copy each supplied snippet into its placeholder location, keep the `LAB PLACEHOLDER` comment, replace only the indicated incomplete line or block, and preserve the surrounding indentation.
+Cada placeholder marca código incompleto. Copie cada trecho fornecido para o local do placeholder, mantenha o comentário `LAB PLACEHOLDER`, substitua apenas a linha ou bloco indicado como incompleto e preserve a indentação circundante.
 
-> **Tip:** After you copy and paste each Python snippet, validate its indentation against the surrounding function or class before running the code.
+> **Dica:** Depois de copiar e colar cada trecho Python, valide sua indentação em relação à função ou classe circundante antes de executar o código.
 
-**Implement drug-interaction lookup**
+**Implemente a busca de interação medicamentosa**
 
-1. In `src/server.py`, find the exact marker `# LAB PLACEHOLDER 1: Replace this line with the Task 1 sample.`
+1. Em `src/server.py`, encontre o marcador exato `# LAB PLACEHOLDER 1: Replace this line with the Task 1 sample.`
 
-2. Replace only the `raise NotImplementedError` line beneath it with:
+2. Substitua apenas a linha `raise NotImplementedError` logo abaixo por:
 
 ```python
   requested_pair = sorted((drug_a.strip().casefold(), drug_b.strip().casefold()))
@@ -116,13 +117,13 @@ Each placeholder marks incomplete code. Copy each supplied snippet into its plac
   return {"status": "not_found", "reason": "pair_not_in_synthetic_catalog"}
 ```
 
-Sorting makes the pair order-independent. The tool logs no medication values, and an unknown pair returns no invented guidance.
+A ordenação torna a ordem dos pares independente. A ferramenta não registra valores de medicação, e um par desconhecido não retorna orientação inventada.
 
-**Implement capacity lookup**
+**Implemente a busca de capacidade**
 
-3. In `src/server.py`, find the exact marker `# LAB PLACEHOLDER 2: Replace this line with the Task 2 sample.`
+3. Em `src/server.py`, encontre o marcador exato `# LAB PLACEHOLDER 2: Replace this line with the Task 2 sample.`
 
-4. Replace only the `raise NotImplementedError` line beneath it with:
+4. Substitua apenas a linha `raise NotImplementedError` logo abaixo por:
 
 ```python
   normalized_site = site.strip().casefold()
@@ -134,13 +135,13 @@ Sorting makes the pair order-independent. The tool logs no medication values, an
   return {"status": "not_found", "reason": "capacity_not_in_synthetic_catalog"}
 ```
 
-The signature has no patient identifier, so patient data stays outside the protocol boundary.
+A assinatura não possui identificador de paciente, portanto dados do paciente permanecem fora da fronteira do protocolo.
 
-**Select a governed tool**
+**Selecione uma ferramenta governada**
 
-5. In `src/catalog.py`, find the exact marker `# LAB PLACEHOLDER 3: Replace this line with the Task 3 sample.`
+5. Em `src/catalog.py`, encontre o marcador exato `# LAB PLACEHOLDER 3: Replace this line with the Task 3 sample.`
 
-6. Replace only the `raise NotImplementedError` line beneath it with:
+6. Substitua apenas a linha `raise NotImplementedError` logo abaixo por:
 
 ```python
   candidates = [
@@ -158,13 +159,13 @@ The signature has no patient identifier, so patient data stays outside the proto
   return min(candidates, key=lambda entry: entry["p95_latency_ms"])
 ```
 
-Protocol discovery proves availability; catalog metadata adds lifecycle, compatibility, and latency policy.
+A descoberta do protocolo prova disponibilidade; os metadados do catálogo adicionam lifecycle, compatibilidade e política de latência.
 
-**Discover tools through MCP**
+**Descubra ferramentas por meio do MCP**
 
-7. In `src/client.py`, find the exact marker `# LAB PLACEHOLDER 4: Replace this line with the Task 4 sample.`
+7. Em `src/client.py`, encontre o marcador exato `# LAB PLACEHOLDER 4: Replace this line with the Task 4 sample.`
 
-8. Replace only the `raise NotImplementedError` line beneath it with:
+8. Substitua apenas a linha `raise NotImplementedError` logo abaixo por:
 
 ```python
   async with streamablehttp_client(server_url, headers=headers) as (read, write, _):
@@ -181,13 +182,13 @@ Protocol discovery proves availability; catalog metadata adds lifecycle, compati
       ]
 ```
 
-Initialization negotiates the MCP session before `tools/list`, and the returned protocol schemas keep discovery observable.
+A inicialização negocia a sessão MCP antes de `tools/list`, e os schemas de protocolo retornados mantém a descoberta observável.
 
-**Invoke the selected tool**
+**Invoque a ferramenta selecionada**
 
-9. In `src/client.py`, find the exact marker `# LAB PLACEHOLDER 5: Replace this line with the Task 5 sample.`
+9. Em `src/client.py`, encontre o marcador exato `# LAB PLACEHOLDER 5: Replace this line with the Task 5 sample.`
 
-10. Replace only the `raise NotImplementedError` line beneath it with:
+10. Substitua apenas a linha `raise NotImplementedError` logo abaixo por:
 
 ```python
   async with streamablehttp_client(server_url, headers=headers) as (read, write, _):
@@ -216,13 +217,13 @@ Initialization negotiates the MCP session before `tools/list`, and the returned 
       return validate_or_fallback(structured, catalog_entry)
 ```
 
-The client prefers structured MCP content, tolerates both SDK field spellings, and uses text decoding only as a compatibility fallback.
+O cliente prefere conteúdo MCP estruturado, tolera ambas as grafias de campo do SDK e usa decodificação de texto apenas como fallback de compatibilidade.
 
-**Enforce the output contract**
+**Imponha o contrato de saída**
 
-11. In `src/result_validation.py`, find the exact marker `# LAB PLACEHOLDER 6: Replace this line with the Task 6 sample.`
+11. Em `src/result_validation.py`, encontre o marcador exato `# LAB PLACEHOLDER 6: Replace this line with the Task 6 sample.`
 
-12. Replace only the `raise NotImplementedError` line beneath it with:
+12. Substitua apenas a linha `raise NotImplementedError` logo abaixo por:
 
 ```python
   try:
@@ -232,38 +233,38 @@ The client prefers structured MCP content, tolerates both SDK field spellings, a
   return result
 ```
 
-Only schema violations become the governed fallback. Programming and configuration errors remain visible.
+Apenas violações de schema tornam-se o fallback governado. Erros de programação e configuração permanecem visíveis.
 
-## Task 4: Run the solution
+## Tarefa 4: Executar a solução
 
-1. Start the MCP server in one terminal:
+1. Inicie o servidor MCP em um terminal:
 
 ```powershell
 python -m src.server
 ```
 
-2. Open a second terminal at the lab root and activate `.venv` there; on macOS/Linux use `source .venv/bin/activate` before discovery.
-3. Discover the server's tools:
+2. Abra um segundo terminal no root do laboratório e ative `.venv` ali; no macOS/Linux use `source .venv/bin/activate` antes da descoberta.
+3. Descubra as ferramentas do servidor:
 
 ```powershell
 . ./.venv/Scripts/Activate.ps1
 python -m src.main discover --server-url http://127.0.0.1:8000/mcp
 ```
 
-4. Keep the server terminal running throughout local validation.
+4. Mantenha o terminal do servidor em execução durante toda a validação local.
 
-5. Invoke each tool through the MCP client:
+5. Invoque cada ferramenta por meio do cliente MCP:
 
 ```powershell
 python -m src.main call --server-url http://127.0.0.1:8000/mcp --request assets/request-drug.json
 python -m src.main call --server-url http://127.0.0.1:8000/mcp --request assets/request-capacity.json
 ```
 
-**Understand the output**
+**Entenda a saída**
 
-Discovery must return `lookup_drug_interaction` and `get_appointment_capacity`, each with `name`, `description`, and `inputSchema`. These contracts come from an initialized MCP session, not just the local catalog.
+A descoberta deve retornar `lookup_drug_interaction` e `get_appointment_capacity`, cada um com `name`, `description` e `inputSchema`. Esses contratos vêm de uma sessão MCP inicializada, não apenas do catálogo local.
 
-The drug request selects active major version 1, invokes the synthetic atorvastatin/clarithromycin lookup, and validates against the catalog's `output_schema`:
+A requisição de interação medicamentosa seleciona major version 1 ativo, invoca a busca sintética por atorvastatina/claritromicina e valida contra o `output_schema` do catálogo:
 
 ```json
 {
@@ -273,9 +274,9 @@ The drug request selects active major version 1, invokes the synthetic atorvasta
 }
 ```
 
-`ok` means a catalog match passed the schema, not clinical approval. Severity and guidance come from the synthetic asset. The response excludes medication arguments and correlation ID; server logs retain only tool name, correlation ID, and status, never medication values or credentials.
+`ok` significa que a correspondência do catálogo passou no schema, não aprovação clínica. Severidade e orientação vêm do asset sintético. A resposta exclui argumentos de medicação e o correlation ID; os logs do servidor retêm apenas nome da ferramenta, correlation ID e status, nunca valores de medicação ou credenciais.
 
-The capacity request uses the same governed path:
+A requisição de capacidade usa o mesmo caminho governado:
 
 ```json
 {
@@ -286,9 +287,9 @@ The capacity request uses the same governed path:
 }
 ```
 
-Capacity is synthetic: the schema requires status, site, date, and a nonnegative integer slot count. No appointment is reserved or scheduling system called.
+A capacidade é sintética: o schema requer status, site, date e um número inteiro não negativo de vagas. Nenhum agendamento é reservado nem sistema de agendamento é chamado.
 
-An unknown pair returns handler-level `not_found`, fails the success schema, and becomes the governed fallback:
+Um par desconhecido retorna `not_found` em nível de handler, falha no schema de sucesso e torna-se o fallback governado:
 
 ```json
 {
@@ -298,13 +299,13 @@ An unknown pair returns handler-level `not_found`, fails the success schema, and
 }
 ```
 
-The client must not treat absent or invalid data as clinical evidence. Capacity lookup uses `contact_scheduling_desk` as its corresponding fallback. Session and catalog metadata are internal; the CLI prints results and the server logs invocation events.
+O cliente não deve tratar dados ausentes ou inválidos como evidência clínica. A busca de capacidade usa `contact_scheduling_desk` como seu fallback correspondente. Metadados de sessão e catálogo são internos; o CLI imprime resultados e o servidor registra eventos de invocação.
 
-## Task 5: Validate the local implementation
+## Tarefa 5: Validar a implementação local
 
-**Validate the local MCP server**
+**Validar o servidor MCP local**
 
-1. With the server running, execute the local checks:
+1. Com o servidor em execução, execute as verificações locais:
 
 ```powershell
 python scripts/preflight.py
@@ -312,24 +313,24 @@ python -m src.main discover --server-url http://127.0.0.1:8000/mcp
 python -m src.main call --server-url http://127.0.0.1:8000/mcp --request assets/request-drug.json
 ```
 
-2. Verify the discovery, drug, capacity, and scrubbed-log contracts from Task 4. In `assets/request-drug.json`, temporarily set `arguments.drug_a` to `synthetic-unknown-drug`, rerun the local drug call above, and expect `status: unavailable` with `fallback: consult_pharmacist`. Restore `arguments.drug_a` to `atorvastatin` before continuing.
+2. Verifique os contratos de discovery, drug, capacity e scrubbed-log da Tarefa 4. Em `assets/request-drug.json`, temporariamente defina `arguments.drug_a` para `synthetic-unknown-drug`, execute novamente a chamada local de drug acima e espere `status: unavailable` com `fallback: consult_pharmacist`. Restaure `arguments.drug_a` para `atorvastatin` antes de continuar.
 
-## Task 6: Deploy the Azure resources
+## Tarefa 6: Implantar os recursos no Azure
 
-**Set the deployment values**
+**Defina os valores de implantação**
 
-1. Review the cost warning.
-2. Sign in interactively and create an isolated environment.
+1. Revise o aviso de custo.
+2. Faça login interativamente e crie um ambiente isolado.
 
-`azd` provisions hosting and monitoring resources; deployment of the completed MCP server is separate.
+`azd` provisiona recursos de hospedagem e monitoramento; a implantação do servidor MCP concluído é separada.
 
-3. Set `$azureRegion` to an approved region that supports the required services.
-4. Replace the example value `eastus2` if needed.
-> **Resource group:** If your lab environment provides a precreated resource group, set `$resourceGroupName` to its name. Otherwise, leave `$resourceGroupName` empty so the script creates a unique resource group in your subscription.
+3. Defina `$azureRegion` para uma região aprovada que suporte os serviços necessários.
+4. Substitua o valor de exemplo `eastus2` se necessário.
+> **Resource group:** Se seu ambiente de laboratório fornecer um resource group pré-criado, defina `$resourceGroupName` para seu nome. Caso contrário, deixe `$resourceGroupName` vazio para que o script crie um resource group único na sua assinatura.
 
-**Validate and provision the infrastructure**
+**Validar e provisionar a infraestrutura**
 
-5. Run the following commands:
+5. Execute os seguintes comandos:
 
 ```powershell
 $azureRegion = 'eastus2'
@@ -362,27 +363,27 @@ azd provision
 azd env get-values | Out-File .env -Encoding utf8
 ```
 
-6. If provisioning fails, inspect the first Azure deployment error. Regional Container Apps availability, Entra application permissions, role assignments, or an invalid environment setting are common causes.
-7. Correct the cause, then run `azd provision` again.
+6. Se o provisionamento falhar, inspecione o primeiro erro da implantação do Azure. Disponibilidade regional do Container Apps, permissões da aplicação Entra, atribuições de função ou uma configuração de environment inválida são causas comuns.
+7. Corrija a causa e então execute `azd provision` novamente.
 
-**Verify the generated environment**
+**Verifique o environment gerado**
 
-8. After provisioning succeeds, validate that `.env` includes `MCP_ENTRA_CLIENT_ID`, `MCP_ENTRA_TENANT_ID`, `MCP_SERVER_URL`, and `MCP_TOKEN_SCOPE`. These values allow the completed client to authenticate to the deployed MCP endpoint.
-9. Do not add API keys, passwords, patient identifiers, or access tokens to `.env`.
+8. Após o provisionamento ser bem-sucedido, valide que `.env` inclui `MCP_ENTRA_CLIENT_ID`, `MCP_ENTRA_TENANT_ID`, `MCP_SERVER_URL` e `MCP_TOKEN_SCOPE`. Esses valores permitem que o cliente completo se autentique no endpoint MCP implantado.
+9. Não adicione chaves de API, senhas, identificadores de pacientes ou tokens de acesso em `.env`.
 
-The remote endpoint uses Microsoft Entra authentication. Its bootstrap image listens on port 80; Task 7 changes ingress to port 8000 before deploying the MCP server.
+O endpoint remoto usa autenticação Microsoft Entra. Sua imagem bootstrap escuta na porta 80; a Tarefa 7 altera o ingress para a porta 8000 antes de implantar o servidor MCP.
 
-10. Have an administrator grant the signed-in lab users consent to the API scope before remote MCP validation.
-11. Do not send credentials in MCP arguments or log payloads.
+10. Peça a um administrador para conceder consentimento aos usuários do laboratório autenticados para o escopo da API antes da validação remota do MCP.
+11. Não envie credenciais em argumentos MCP ou payloads de log.
 
-> **Network access for this lab:** The Bicep template enables native external ingress on the Container App so the local client can validate the deployed MCP endpoint. Microsoft Entra authentication still protects the endpoint. Production environments should use an approved private access path where required.
+> **Acesso de rede para este laboratório:** O template Bicep habilita ingress externo nativo no Container App para que o cliente local possa validar o endpoint MCP implantado. A autenticação Microsoft Entra ainda protege o endpoint. Ambientes de produção devem usar um caminho de acesso privado aprovado quando necessário.
 
-## Task 7: Validate the deployed MCP server
+## Tarefa 7: Validar o servidor MCP implantado
 
-Remote validation exercises the same protocol contracts; hosting administration is not an additional objective.
+A validação remota exercita os mesmos contratos de protocolo; administração de hospedagem não é um objetivo adicional.
 
-1. In the second terminal, confirm that Docker is running.
-2. Change ingress from the bootstrap image's port 80 to the MCP server's port 8000, deploy the completed server, and load the endpoint and token scope:
+1. No segundo terminal, confirme que o Docker está em execução.
+2. Altere o ingress da imagem bootstrap da porta 80 para a porta 8000 do servidor MCP, implante o servidor concluído e carregue o endpoint e o scope de token:
 
 ```powershell
 docker info
@@ -398,9 +399,9 @@ $env:MCP_SERVER_URL = $values.MCP_SERVER_URL
 $env:MCP_TOKEN_SCOPE = $values.MCP_TOKEN_SCOPE
 ```
 
-The client uses `DefaultAzureCredential` and `MCP_TOKEN_SCOPE` to authenticate.
+O cliente usa `DefaultAzureCredential` e `MCP_TOKEN_SCOPE` para autenticar.
 
-3. Verify the deployed authentication and identity boundaries before sending an authenticated request:
+3. Verifique as fronteiras de autenticação e identidade implantadas antes de enviar uma requisição autenticada:
 
 ```powershell
 $anonymousStatus = curl.exe -s -o NUL -w "%{http_code}" $env:MCP_SERVER_URL
@@ -415,10 +416,10 @@ if ([string]::IsNullOrWhiteSpace($managedIdentityPrincipalId)) { throw 'The Cont
 'REMOTE_BOUNDARIES_VALIDATED'
 ```
 
-Expect `REMOTE_BOUNDARIES_VALIDATED`. These checks prove anonymous rejection, the allowed token audience, the requested scope, and the presence of the workload managed identity. They do not prove that a private network path exists.
+Espere `REMOTE_BOUNDARIES_VALIDATED`. Essas verificações provam rejeição anônima, a audiência permitida do token, o scope solicitado e a presença da workload managed identity. Elas não provam que um caminho de rede privado existe.
 
-4. Do not acquire, paste, or print the token manually.
-5. Run discovery and both tool requests against the remote MCP endpoint:
+4. Não adquira, cole ou imprima o token manualmente.
+5. Execute discovery e ambas as requisições de ferramenta contra o endpoint MCP remoto:
 
 ```powershell
 python -m src.main discover --server-url $env:MCP_SERVER_URL
@@ -426,13 +427,13 @@ python -m src.main call --server-url $env:MCP_SERVER_URL --request assets/reques
 python -m src.main call --server-url $env:MCP_SERVER_URL --request assets/request-capacity.json
 ```
 
-Compare the remote output with the Task 4 examples. Confirm that discovery returns both tools with their `name`, `description`, and `inputSchema`, and that the drug and capacity requests return the exact synthetic results shown in Task 4. Remote log inspection is not required; you verified the scrubbed-log behavior during local validation in Task 5.
+Compare a saída remota com os exemplos da Tarefa 4. Confirme que a discovery retorna ambas as ferramentas com seus `name`, `description` e `inputSchema`, e que as requisições de drug e capacity retornam exatamente os resultados sintéticos mostrados na Tarefa 4. A inspeção remota de logs não é necessária; você já verificou o comportamento de logs depurados durante a validação local na Tarefa 5.
 
-6. If the client reports a consent or authorization error, confirm that an administrator granted the signed-in user access to the API scope created during provisioning. If `MCP_TOKEN_SCOPE` is missing for a non-local URL, the client must fail with `MCP_TOKEN_SCOPE is required for a remote MCP server` before opening an HTTP session.
+6. Se o cliente relatar um erro de consentimento ou autorização, confirme que um administrador concedeu ao usuário autenticado acesso ao scope da API criado durante o provisionamento. Se `MCP_TOKEN_SCOPE` estiver ausente para uma URL não-local, o cliente deve falhar com `MCP_TOKEN_SCOPE is required for a remote MCP server` antes de abrir uma sessão HTTP.
 
-**Run the final checks**
+**Execute as verificações finais**
 
-7. Run the side-effect-free final checks:
+7. Execute as verificações finais sem efeitos colaterais:
 
 ```powershell
 python scripts/preflight.py
@@ -440,29 +441,29 @@ Get-ChildItem src,scripts -Filter *.py -Recurse | ForEach-Object { python -m py_
 az bicep build --file infra/main.bicep
 ```
 
-Expect `Preflight passed` and error-free Python and Bicep compilation. These local checks do not replace the protocol evidence above.
+Espere `Preflight passed` e compilação sem erros de Python e Bicep. Essas verificações locais não substituem as evidências de protocolo acima.
 
-## Optional challenge: Reject an incompatible tool version
+## Desafio opcional: Rejeitar uma versão de ferramenta incompatível
 
-Add a second catalog entry with incompatible protocol or schema metadata.
+Adicione uma segunda entrada de catálogo com metadata de protocolo ou schema incompatível.
 
-**Expected output:** Selection rejects the entry with a compatibility reason and no tool invocation occurs.
+**Saída esperada:** A seleção rejeita a entrada com uma razão de compatibilidade e nenhuma invocação da ferramenta ocorre.
 
-**Failure investigation:** Simulate a dependency timeout and verify bounded retry or circuit-breaker behavior without returning fabricated success evidence.
-## Task 8: Review the design
+**Investigação de falha:** Simule um timeout de dependência e verifique comportamento de retry limitado ou circuit-breaker sem retornar evidência de sucesso fabricada.
+## Tarefa 8: Revisar o design
 
-1. Answer these questions:
+1. Responda a estas perguntas:
 
-- Which errors should be retried, and which should immediately return a structured permanent failure?
-- What catalog fields are required to support a 90-day deprecation window?
-- How would per-user OAuth passthrough change the authorization boundary?
-- Which telemetry fields support diagnosis without disclosing clinical inputs?
+- Quais erros devem ser re-tentados e quais devem imediatamente retornar uma falha permanente estruturada?
+- Quais campos do catálogo são necessários para suportar uma janela de descontinuação de 90 dias?
+- Como o passthrough OAuth por usuário alteraria a fronteira de autorização?
+- Quais campos de telemetria suportam diagnóstico sem divulgar entradas clínicas?
 
-## Task 9: Clean up
+## Tarefa 9: Limpeza
 
-**Remove Azure resources**
+**Remover recursos do Azure**
 
-1. Delete billable resources and confirm the resource group is removed.
+1. Exclua recursos faturáveis e confirme que o resource group foi removido.
 
 ```powershell
 $values = azd env get-values --output json | ConvertFrom-Json
@@ -473,20 +474,20 @@ if (-not [string]::IsNullOrWhiteSpace($entraAppObjectId)) {
 }
 ```
 
-2. Confirm that the resource group and the temporary Entra app registration are deleted.
-3. Do not retain `.env`, access tokens, or deployment output in source control.
+2. Confirme que o resource group e o registro de aplicação Entra temporário foram excluídos.
+3. Não retenha `.env`, tokens de acesso ou saída de implantação no controle de versão.
 
-**Deactivate the virtual environment**
+**Desativar o ambiente virtual**
 
-4. Stop the local MCP server with **Ctrl+C**.
-5. Run this command separately in every terminal where `(.venv)` appears in the prompt:
+4. Pare o servidor MCP local com **Ctrl+C**.
+5. Execute este comando separadamente em cada terminal onde `(.venv)` aparecer no prompt:
 
 ```powershell
 deactivate
 ```
 
-6. Confirm that `(.venv)` no longer appears in any terminal before changing to another lab directory.
+6. Confirme que `(.venv)` não aparece mais em nenhum terminal antes de mudar para outro diretório do laboratório.
 
-## Summary
+## Resumo
 
-You implemented and validated local and Entra-authenticated remote MCP discovery, compatibility-aware tool selection, result validation, scrubbed telemetry, and safe fallback behavior.
+Você implementou e validou discovery MCP local e remoto autenticado por Entra, seleção de ferramenta sensível à compatibilidade, validação de resultados, telemetria depurada e comportamento de fallback seguro.

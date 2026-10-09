@@ -1,62 +1,63 @@
 ---
 lab:
-  title: 'Implement advanced multi-agent orchestration patterns in Microsoft Foundry'
-  description: 'Build and validate a v2 fan-out/fan-in research workflow with quorum and partial-failure handling.'
+  title: 'Implementar padrões avançados de orquestração multiagente no Microsoft Foundry'
+  description: 'Construir e validar um workflow de pesquisa v2 fan-out/fan-in com quórum e tratamento de falhas parciais.'
   duration: 45
   level: 400
   islab: true
   status: 'released'
+layout: default
 ---
 
-# Implement advanced multi-agent orchestration patterns in Microsoft Foundry
+# Implementar padrões avançados de orquestração multiagente no Microsoft Foundry
 
-## Customer scenario
+## Cenário do cliente
 
-Contoso Capital needs market, risk, and compliance specialists to contribute to one investment brief. Independent work should run concurrently, dependent work must remain ordered, and a failed optional specialist must not silently invalidate the report.
+A Contoso Capital precisa que especialistas em mercado, risco e conformidade contribuam para um único informe de investimento. Trabalhos independentes devem ser executados concorrentemente, trabalhos dependentes devem permanecer ordenados, e um especialista opcional com falha não deve invalidar silenciosamente o relatório.
 
-## Lab scenario
+## Cenário do laboratório
 
-Complete a hub-and-spoke orchestrator that creates versioned Agents v2 specialists, fans out live response calls, applies a configurable quorum, and sends accepted evidence to a supervisor. The supplied request concerns a synthetic balanced portfolio under a fictional interest-rate shock. No agent receives real customer data or recommends trades.
+Complete um orquestrador hub-and-spoke que cria Agents v2 versionados especialistas, faz fan-out de chamadas de resposta ao vivo, aplica um quórum configurável e envia as evidências aceitas para um supervisor. A solicitação fornecida trata de um portfólio balanceado sintético sob um choque de taxa de juros fictício. Nenhum agente recebe dados reais de clientes ou recomenda transações.
 
-<!-- LAB DIAGRAM PLACEHOLDER: Show the hub-and-spoke fan-out, quorum decision, and supervisor fan-in. -->
+<!-- MARCADOR DO DIAGRAMA DO LAB: Mostrar o hub-and-spoke fan-out, decisão de quórum e fan-in do supervisor. -->
 
-### Agent responsibilities
+### Responsabilidades dos agentes
 
-Each spoke receives the same request plus its assignment and returns concise JSON based only on the supplied scenario.
+Cada spoke recebe a mesma solicitação mais sua atribuição e retorna JSON conciso baseado apenas no cenário fornecido.
 
-| Agent | Contribution | Quorum policy |
+| Agente | Contribuição | Política de quórum |
 |---|---|---|
-| `market-spoke` | Market assumptions, uncertainties, and evidence gaps. | Required. |
-| `risk-spoke` | Risk drivers, exposure limits, and uncertainty, without investment advice. | Required. |
-| `compliance-spoke` | Disclosures, policy caveats, and limits on use of the research. | Optional; missing evidence must be disclosed. |
-| `research-supervisor` | One brief from the original request, accepted spoke evidence, and missing-agent list; no invented facts or investment advice. | Runs only after both required spokes succeed. |
+| `market-spoke` | Pressupostos de mercado, incertezas e lacunas de evidência. | Obrigatório. |
+| `risk-spoke` | Drivers de risco, limites de exposição e incerteza, sem conselho de investimento. | Obrigatório. |
+| `compliance-spoke` | Divulgações, ressalvas de política e limites de uso da pesquisa. | Opcional; lacunas de evidência devem ser divulgadas. |
+| `research-supervisor` | Um breve do pedido original, evidências aceitas dos spokes e lista de agentes faltantes; sem fatos inventados ou aconselhamento de investimento. | Executa somente após ambos os spokes obrigatórios terem sucesso. |
 
-### How the agents collaborate
+### Como os agentes colaboram
 
-`src/main.py` creates agent versions from `assets/portfolio-request.json`, invokes independent spokes behind a bounded semaphore, normalizes their results, and evaluates quorum before synthesis. Spokes do not share a conversation, see sibling outputs, or invoke one another. Application code owns concurrency and failure policy; agents own analysis and synthesis.
+`src/main.py` cria versões de agente a partir de `assets/portfolio-request.json`, invoca spokes independentes atrás de um semáforo limitado, normaliza seus resultados e avalia o quórum antes da síntese. Spokes não compartilham uma conversa, não veem saídas de irmãos nem invocam uns aos outros. O código da aplicação é responsável por concorrência e política de falha; os agentes são responsáveis pela análise e síntese.
 
-By the end of this exercise, you will be able to:
+Ao final deste exercício, você será capaz de:
 
-- Justify when multi-agent coordination earns its cost.
-- Implement a central hub with specialist spokes.
-- Fan out independent calls and synchronize results.
-- Apply supervisor, quorum, timeout, and partial-failure policy.
-- Compare orchestration behavior across normal and optional-failure inputs.
+- Justificar quando a coordenação multiagente compensa seu custo.
+- Implementar um hub central com spokes especialistas.
+- Fazer fan-out de chamadas independentes e sincronizar resultados.
+- Aplicar políticas de supervisor, quórum, timeout e falha parcial.
+- Comparar o comportamento da orquestração entre entradas normais e com falha opcional.
 
-> **Important**: Concurrent model calls consume quota faster than sequential calls. Use only the synthetic portfolio and remove resources after validation.
+> **Importante**: Chamadas concorrentes de modelo consomem cota mais rapidamente do que chamadas sequenciais. Use apenas o portfólio sintético e remova recursos após a validação.
 
-## Task 1: Prepare the lab
+## Tarefa 1: Preparar o laboratório
 
-Use [Python 3.11+](https://www.python.org/downloads/), [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli)/[Bicep](https://learn.microsoft.com/azure/azure-resource-manager/bicep/install), [Azure Developer CLI (`azd`)](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd), [Visual Studio Code](https://code.visualstudio.com/download), and an authenticated Azure subscription. You need a supported model deployment and permission to create Foundry resources. Confirm quota can support three concurrent calls.
+Use [Python 3.11+](https://www.python.org/downloads/), [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli)/[Bicep](https://learn.microsoft.com/azure/azure-resource-manager/bicep/install), [Azure Developer CLI (`azd`)](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd), [Visual Studio Code](https://code.visualstudio.com/download) e uma assinatura Azure autenticada. Você precisa de um deployment de modelo suportado e permissão para criar recursos do Foundry. Confirme se a cota suporta três chamadas concorrentes.
 
-1. If you haven't already done so, clone the [lab source repository](https://github.com/MicrosoftLearning/mslearn-ai-multi-agents/tree/main), or fork the repository and clone your fork:
+1. Se ainda não fez, clone o [repositório de código-fonte do laboratório](https://github.com/MicrosoftLearning/mslearn-ai-multi-agents/tree/main), ou faça um fork do repositório e clone seu fork:
 
 ```console
 git clone https://github.com/MicrosoftLearning/mslearn-ai-multi-agents.git
 ```
 
-2. Open the cloned repository in Visual Studio Code.
-3. From the VS Code terminal, validate the required tools, credentials, and active subscription:
+2. Abra o repositório clonado no Visual Studio Code.
+3. Pelo terminal do VS Code, valide as ferramentas requeridas, credenciais e assinatura ativa:
 
 ```powershell
 cd Allfiles\02-contoso-capital-advanced-orchestration
@@ -66,41 +67,41 @@ python --version
 az account show --output table
 ```
 
-**Architecture checkpoint**
+**Ponto de verificação da arquitetura**
 
-Review `infra/main.bicep`, `assets/portfolio-request.json`, and `src/main.py`. Before continuing, confirm that:
+Revise `infra/main.bicep`, `assets/portfolio-request.json` e `src/main.py`. Antes de continuar, confirme que:
 
-- the portfolio asset defines each specialist's assignment and required or optional status;
-- the three agent-bound specialist calls can run concurrently;
-- market and risk evidence are required while compliance evidence is optional;
-- deterministic code evaluates quorum before supervisor synthesis.
+- o ativo do portfólio define a atribuição de cada especialista e o status obrigatório ou opcional;
+- as três chamadas especialistas vinculadas ao agente podem ser executadas concorrentemente;
+- evidência de mercado e risco são obrigatórias enquanto evidência de conformidade é opcional;
+- código determinístico avalia o quórum antes da síntese do supervisor.
 
-## Task 2: Build the virtual environment
+## Tarefa 2: Construir o ambiente virtual
 
-1. From the lab directory, create and activate the virtual environment:
+1. A partir do diretório do laboratório, crie e ative o ambiente virtual:
 
 ```powershell
 ./scripts/setup.ps1
 . ./.venv/Scripts/Activate.ps1
 ```
 
-> On macOS/Linux, run `bash scripts/setup.sh` and `source .venv/bin/activate` instead.
+> No macOS/Linux, execute `bash scripts/setup.sh` e `source .venv/bin/activate` em vez disso.
 
-## Task 3: Deploy the Azure resources
+## Tarefa 3: Provisionar os recursos Azure
 
-Check cost, quota, and access before provisioning. Model calls, Application Insights ingestion, and 30-day Log Analytics retention are billable. Use a unique environment and bounded scenarios. `azd` provisions the Bicep resources; the application runs separately.
+Verifique custo, cota e acesso antes do provisionamento. Chamadas de modelo, ingestão do Application Insights e retenção de 30 dias do Log Analytics são cobradas. Use um ambiente único e cenários limitados. `azd` provisiona os recursos Bicep; a aplicação é executada separadamente.
 
-**Set the deployment values**
+**Defina os valores de implantação**
 
-1. Set `$azureRegion` to an approved region that supports the selected model; replace `eastus2` if needed.
+1. Defina `$azureRegion` para uma região aprovada que suporte o modelo selecionado; substitua `eastus2` se necessário.
 
-> **Resource group:** If your lab environment provides a precreated resource group, set `$resourceGroupName` to its name. Otherwise, leave `$resourceGroupName` empty so the script creates a unique resource group in your subscription.
+> **Grupo de recursos:** Se seu ambiente de laboratório fornecer um grupo de recursos pré-criado, defina `$resourceGroupName` com seu nome. Caso contrário, deixe `$resourceGroupName` vazio para que o script crie um grupo de recursos único na sua assinatura.
 
-> **Note:** `AZURE_DEV_USER_AGENT` tags provisioning for attribution and is not exported to `.env`. Remove it afterward to avoid tagging unrelated commands.
+> **Nota:** `AZURE_DEV_USER_AGENT` marca o provisionamento para atribuição e não é exportado para `.env`. Remova-o depois para evitar marcar comandos não relacionados.
 
-**Validate and provision the infrastructure**
+**Validar e provisionar a infraestrutura**
 
-2. Validate Bicep, provision the resources, and export the environment:
+2. Valide o Bicep, provisione os recursos e exporte o ambiente:
 
 ```powershell
 $azureRegion = 'eastus2'
@@ -122,25 +123,25 @@ azd env get-values | Out-File .env -Encoding utf8
 Remove-Item Env:AZURE_DEV_USER_AGENT
 ```
 
-3. If provisioning fails, inspect the first deployment error. Check model quota, model-version and regional availability, and role-assignment permissions. Correct the relevant setting or permission and rerun `azd provision`.
+3. Se o provisionamento falhar, inspecione o primeiro erro de deployment. Verifique cota de modelo, disponibilidade de model-version e regional, e permissões de role-assignment. Corrija a configuração ou permissão relevante e reexecute `azd provision`.
 
-**Verify the generated environment**
+**Verifique o ambiente gerado**
 
-4. Confirm that `.env` includes `FOUNDRY_PROJECT_ENDPOINT`, `FOUNDRY_PROJECT_ID`, `FOUNDRY_MODEL_NAME`, `APPLICATIONINSIGHTS_RESOURCE_ID`, and `LOG_ANALYTICS_WORKSPACE_ID`.
+4. Confirme que `.env` inclui `FOUNDRY_PROJECT_ENDPOINT`, `FOUNDRY_PROJECT_ID`, `FOUNDRY_MODEL_NAME`, `APPLICATIONINSIGHTS_RESOURCE_ID` e `LOG_ANALYTICS_WORKSPACE_ID`.
 
-The Application Insights connection string is stored in the Foundry project connection and is not written to `.env`.
+A connection string do Application Insights é armazenada na conexão do projeto Foundry e não é escrita em `.env`.
 
-> **Network access for this lab:** The Bicep template enables the Foundry account's native public network access and sets the default network action to **Allow** so the local application can reach the project endpoint. Microsoft Entra authentication and Azure RBAC are still required. After deployment, confirm these settings on the Foundry account **Networking** page. Production environments should use an approved selected-network or private-endpoint design.
+> **Acesso de rede para este laboratório:** O template Bicep habilita o acesso público nativo da conta Foundry e define a ação de rede padrão para **Allow** para que a aplicação local possa alcançar o endpoint do projeto. A autenticação Microsoft Entra e o Azure RBAC ainda são exigidos. Após o deployment, confirme essas configurações na página **Rede (Networking)** da conta Foundry. Ambientes de produção devem usar um selected-network aprovado ou design de private-endpoint.
 
-5. Do not add keys or tokens to `.env`.
+5. Não adicione chaves ou tokens em `.env`.
 
-## Task 4: Implement the solution
+## Tarefa 4: Implementar a solução
 
-Each placeholder marks incomplete code. Copy each supplied snippet into its placeholder location, keep the `LAB PLACEHOLDER` comment, replace only the indicated incomplete line or block, and preserve the surrounding indentation.
+Cada placeholder marca código incompleto. Copie cada trecho fornecido para seu local de placeholder, mantenha o comentário `LAB PLACEHOLDER`, substitua somente a linha ou bloco incompleto indicado e preserve a indentação ao redor.
 
-**Select a safe execution pattern**
+**Selecione um padrão de execução seguro**
 
-1. Open `src/main.py` and find **LAB PLACEHOLDER 1** in `select_execution_pattern`:
+1. Abra `src/main.py` e localize **LAB PLACEHOLDER 1** em `select_execution_pattern`:
 
 ```python
 # LAB PLACEHOLDER 1: Replace this line with the Task 1 sample.
@@ -156,11 +157,11 @@ has_in_round_dependency = any(
 return "sequential" if has_in_round_dependency else "parallel"
 ```
 
-An in-batch dependency selects sequential execution; independent spokes remain eligible for parallel fan-out.
+Uma dependência in-batch seleciona execução sequencial; spokes independentes permanecem elegíveis para fan-out paralelo.
 
-**Enforce critical-agent quorum**
+**Aplicar quórum de agente crítico**
 
-2. Find **LAB PLACEHOLDER 2** in `evaluate_quorum`:
+2. Localize **LAB PLACEHOLDER 2** em `evaluate_quorum`:
 
 ```python
 # LAB PLACEHOLDER 2: Replace this line with the Task 2 sample.
@@ -199,11 +200,11 @@ return {
 }
 ```
 
-Quorum separates optional omissions from missing required evidence. Only normalized successful results proceed; exceptions, credentials, endpoints, and hidden agent state are excluded from the supervisor payload.
+Quórum separa omissões opcionais de evidências obrigatórias ausentes. Apenas resultados normalizados bem-sucedidos avançam; exceções, credenciais, endpoints e estado oculto do agente são excluídos do payload do supervisor.
 
-**Synthesize accepted evidence**
+**Sintetizar evidência aceita**
 
-3. Find **LAB PLACEHOLDER 3** in `synthesize`:
+3. Localize **LAB PLACEHOLDER 3** em `synthesize`:
 
 ```python
 # LAB PLACEHOLDER 3: Replace this line with the Task 3 sample.
@@ -230,26 +231,26 @@ return openai.responses.create(
 )
 ```
 
-This fan-in boundary blocks synthesis on insufficient quorum and requires explicit caveats for missing optional evidence.
+Esta barreira de fan-in bloqueia a síntese quando o quórum é insuficiente e exige ressalvas explícitas para evidência opcional ausente.
 
-**Check failure isolation and concurrency controls**
+**Verificar isolamento de falhas e controles de concorrência**
 
-The supplied runner honors the selected execution pattern. Independent spokes use `asyncio.gather(...)`, while dependent spokes are awaited sequentially. `invoke` catches each spoke failure and returns the same normalized result shape before quorum logic runs, so raw exception objects never enter `evaluate_quorum`. The `asyncio.Semaphore` bounds parallel calls, and each timeout includes time waiting for capacity as well as the model call.
+O runner fornecido respeita o padrão de execução selecionado. Spokes independentes usam `asyncio.gather(...)`, enquanto spokes dependentes são aguardados sequencialmente. `invoke` captura cada falha de spoke e retorna a mesma forma de resultado normalizado antes da lógica de quórum executar, de modo que objetos de exceção brutos nunca entram em `evaluate_quorum`. O `asyncio.Semaphore` limita chamadas paralelas, e cada timeout inclui tempo de espera por capacidade além da chamada de modelo.
 
-4. Run the local checks before making a billable model call:
+4. Execute as verificações locais antes de fazer uma chamada de modelo cobrável:
 
 ```powershell
 python -m py_compile src/main.py scripts/preflight.py
 python scripts/preflight.py
 ```
 
-5. Confirm that preflight reports four `PASS` lines, all three markers remain, and `src/main.py` contains no `NotImplementedError`.
+5. Confirme que o preflight reporta quatro linhas `PASS`, que os três marcadores permanecem, e que `src/main.py` não contém `NotImplementedError`.
 
-## Task 5: Run the solution
+## Tarefa 5: Executar a solução
 
-**Capture both scenarios**
+**Capturar ambos os cenários**
 
-1. Run the normal input once and capture its output:
+1. Execute a entrada normal uma vez e capture sua saída:
 
 ```powershell
 python -m py_compile src/main.py scripts/preflight.py
@@ -257,51 +258,51 @@ python -m src.main --input assets/portfolio-request.json *> artifacts-normal.txt
 Select-String artifacts-normal.txt -Pattern 'pattern|quorum|elapsed_ms|missing_agents|supervisor_response_id'
 ```
 
-2. Run the optional-failure input and capture its output separately:
+2. Execute a entrada com falha opcional e capture sua saída separadamente:
 
 ```powershell
 python -m src.main --input assets/portfolio-request-optional-failure.json *> artifacts-optional-failure.txt
 ```
 
-The inputs differ only in `simulate_optional_failure`. The second run marks `compliance-spoke` as failed **after its live call**; it does not simulate an Azure service outage. Do not edit the normal input.
+As entradas diferem apenas em `simulate_optional_failure`. A segunda execução marca `compliance-spoke` como falhado **após sua chamada ao vivo**; ela não simula uma queda de serviço Azure. Não edite a entrada normal.
 
-3. Display the orchestration fields from both runs:
+3. Exiba os campos de orquestração de ambas as execuções:
 
 ```powershell
 Select-String -Path artifacts-normal.txt,artifacts-optional-failure.txt -Pattern 'pattern|"agent"|"status"|missing_agents|missing_required|accepted_evidence|supervisor_response_id'
 ```
 
-4. Retain both artifacts and their response IDs for trace validation. IDs, wording, and timing vary between live runs; those differences are not policy changes.
+4. Preserve ambos os artefatos e seus response IDs para validação de rastreio. IDs, redação e tempos variam entre execuções ao vivo; essas diferenças não são mudanças de política.
 
-## Task 6: Validate the implementation
+## Tarefa 6: Validar a implementação
 
-**Compare orchestration outcomes**
+**Comparar resultados da orquestração**
 
-1. Compare the saved outputs against these acceptance criteria:
+1. Compare as saídas salvas contra estes critérios de aceitação:
 
-| Field | Normal input | Optional-failure input |
+| Campo | Entrada normal | Entrada com falha opcional |
 |---|---|---|
 | `pattern` | `parallel` | `parallel` |
-| `compliance-spoke.status` | `success` | `failed`; market and risk still succeed |
+| `compliance-spoke.status` | `success` | `failed`; market e risk ainda têm sucesso |
 | `quorum.status` | `ready` | `ready` |
-| `quorum.missing_agents` | Empty | Contains `compliance-spoke` |
-| `quorum.missing_required` | Empty | Empty |
-| `quorum.accepted_evidence` | Three spoke results | Only market and risk results |
-| `supervisor_response_id` | Present | Present |
-| Supervisor answer | Uses accepted evidence only | Explicitly states that compliance evidence is missing |
+| `quorum.missing_agents` | Vazio | Contém `compliance-spoke` |
+| `quorum.missing_required` | Vazio | Vazio |
+| `quorum.accepted_evidence` | Três resultados de spoke | Apenas resultados de market e risk |
+| `supervisor_response_id` | Presente | Presente |
+| Resposta do Supervisor | Usa apenas evidência aceita | Declara explicitamente que evidência de conformidade está ausente |
 
-2. In the normal output, confirm that `spokes` contains three normalized successful results with response IDs, visible text, and durations, plus a separate supervisor response ID.
-3. Compare `elapsed_ms` with the sum of spoke durations. The wall-clock value includes the spoke barrier and supervisor call; use trace overlap below to verify concurrency.
-4. Review the required-failure path in `evaluate_quorum` and `synthesize`: a failed `market-spoke` or `risk-spoke` must produce `insufficient_quorum` and block the supervisor call. The optional-failure run does not exercise this path.
+2. Na saída normal, confirme que `spokes` contém três resultados normalizados bem-sucedidos com response IDs, texto visível e durações, além de um response ID separado do supervisor.
+3. Compare `elapsed_ms` com a soma das durações dos spokes. O valor de wall-clock inclui a barreira dos spokes e a chamada do supervisor; use a sobreposição de trace abaixo para verificar concorrência.
+4. Revise o caminho de falha obrigatória em `evaluate_quorum` e `synthesize`: um `market-spoke` ou `risk-spoke` falhado deve produzir `insufficient_quorum` e bloquear a chamada do supervisor. A execução com falha opcional não exerce esse caminho.
 
-Local schema checks do not substitute for live response evidence.
+Verificações locais de schema não substituem evidência de respostas ao vivo.
 
-**Validate agent definitions and role behavior**
+**Validar definições de agente e comportamento de papéis**
 
-5. Find the project name in the final segment of `FOUNDRY_PROJECT_ENDPOINT` in `.env`. Open the [Microsoft Foundry portal](https://ai.azure.com), enable **New Foundry**, and select that project.
-6. Select **Build** > **Agents**. Confirm that `market-spoke`, `risk-spoke`, `compliance-spoke`, and `research-supervisor` exist as prompt agents.
-7. Open each agent's newest version and confirm its model matches `FOUNDRY_MODEL_NAME` and its instructions match `assets/portfolio-request.json`. Each application run creates new versions.
-8. Open each spoke's newest version in the **Playground** and submit the prompt shown for that agent:
+5. Encontre o nome do projeto no segmento final de `FOUNDRY_PROJECT_ENDPOINT` em `.env`. Abra o [portal Microsoft Foundry](https://ai.azure.com), habilite **Novo Foundry (New Foundry)**, e selecione esse projeto.
+6. Selecione **Criar (Build)** > **Agentes (Agents)**. Confirme que `market-spoke`, `risk-spoke`, `compliance-spoke` e `research-supervisor` existem como prompt agents.
+7. Abra a versão mais nova de cada agente e confirme que seu modelo corresponde a `FOUNDRY_MODEL_NAME` e suas instruções correspondem a `assets/portfolio-request.json`. Cada execução da aplicação cria novas versões.
+8. Abra a versão mais nova de cada spoke no **Playground (Playground)** e submeta o prompt mostrado para esse agente:
 
 **`market-spoke`**
 
@@ -324,11 +325,11 @@ Local schema checks do not substitute for live response evidence.
   Assignment: Return compliance caveats.
   ```
 
-9. Verify the role boundaries:
-   - `market-spoke` identifies assumptions and missing market evidence.
-   - `risk-spoke` identifies risk drivers and analysis limits without providing investment advice.
-   - `compliance-spoke` identifies policy caveats without performing the market or risk analysis.
-10. Open `research-supervisor` in the **Playground** and submit this complete synthetic fan-in payload:
+9. Verifique os limites de função:
+   - `market-spoke` identifica pressupostos e evidência de mercado faltante.
+   - `risk-spoke` identifica drivers de risco e limites de análise sem fornecer conselho de investimento.
+   - `compliance-spoke` identifica ressalvas de política sem realizar a análise de mercado ou risco.
+10. Abra `research-supervisor` no **Playground (Playground)** e submeta este payload completo de fan-in sintético:
 
   ```json
   {
@@ -353,43 +354,43 @@ Local schema checks do not substitute for live response evidence.
   }
   ```
 
-11. Confirm that the supervisor:
-    - Uses only the two supplied evidence records.
-    - Explicitly states that compliance evidence is missing.
-    - Does not invent a compliance conclusion, portfolio holdings, exposure values, or a rate-shock magnitude.
+11. Confirme que o supervisor:
+    - Usa apenas os dois registros de evidência fornecidos.
+    - Declara explicitamente que a evidência de conformidade está ausente.
+    - Não inventa uma conclusão de conformidade, participações do portfólio, valores de exposição ou a magnitude do choque de taxa.
 
-Playground calls test agents independently. They do not reproduce parallel orchestration or prove which agents a saved console run invoked.
+Chamadas no Playground testam agentes independentemente. Elas não reproduzem orquestração paralela nem provam quais agentes uma execução salva no console invocou.
 
-**Correlate service traces with application evidence**
+**Correlacione traces de serviço com evidência da aplicação**
 
-12. Select **Agents** > **Traces**, set the time range to cover the normal run, and search for its saved response IDs. Allow several minutes for ingestion.
-13. Compare the three spoke traces: overlapping start times and durations demonstrate concurrent calls. Confirm that the supervisor trace starts after the spoke responses complete.
-14. Repeat for the optional-failure run. A compliance trace can still exist because fault injection occurs after the live call. Use the final JSON to verify exclusion from accepted evidence, the quorum decision, and the supervisor's caveat.
+12. Selecione **Agentes (Agents)** > **Rastreamentos (Traces)**, defina o intervalo de tempo para cobrir a execução normal, e busque pelos response IDs salvos. Aguarde vários minutos para ingestão.
+13. Compare os três traces de spoke: tempos de início e durações sobrepostos demonstram chamadas concorrentes. Confirme que o trace do supervisor inicia após a conclusão das respostas dos spokes.
+14. Repita para a execução com falha opcional. Um trace de conformidade ainda pode existir porque a injeção de falha ocorre após a chamada ao vivo. Use o JSON final para verificar a exclusão da evidência aceita, a decisão de quórum e a ressalva do supervisor.
 
-Service traces show Foundry calls and timing, not the Python semaphore, `asyncio.gather`, fault injection, or quorum code. Correlate them with the saved JSON; do not expect one end-to-end parent span. Client-side instrumentation, KQL, sampling, and alerts are covered in Lab 13.
+Traces de serviço mostram chamadas Foundry e tempos, não o semáforo Python, `asyncio.gather`, injeção de falha ou código de quórum. Correlacione-os com o JSON salvo; não espere uma única span pai de ponta a ponta. Instrumentação do lado cliente, KQL, sampling e alertas são abordados no Lab 13.
 
-## Task 7: Review the design
+## Tarefa 7: Revisar o design
 
-Record brief answers:
+Registre respostas breves:
 
-- Why does `pattern` remain `parallel` in both runs?
-- Why must optional failure leave quorum ready while removing compliance evidence and adding a caveat?
-- Which decisions belong in deterministic code rather than agent judgment?
-- When would these specialists justify their coordination cost over a single agent, and what additional measurements would support that decision?
+- Por que `pattern` permanece `parallel` em ambas as execuções?
+- Por que a falha opcional deve deixar o quórum pronto enquanto remove a evidência de conformidade e adiciona uma ressalva?
+- Quais decisões pertencem a código determinístico em vez de julgamento do agente?
+- Quando esses especialistas justificariam seu custo de coordenação em vez de um único agente, e quais medições adicionais suportariam essa decisão?
 
-## Optional challenge: Add a guarded route
+## Desafio opcional: Adicionar uma rota protegida
 
-Add a synthetic high-risk request that selects sequential execution and requires the compliance spoke before the remaining assignment.
+Adicione uma solicitação sintética de alto risco que selecione execução sequencial e exija o spoke de conformidade antes da atribuição dependente restante.
 
-**Expected output:** `pattern` is `sequential`, the compliance result completes before the dependent spoke starts, and the final response identifies the selected route.
+**Saída esperada:** `pattern` é `sequential`, o resultado de conformidade completa antes do início do spoke dependente, e a resposta final identifica a rota selecionada.
 
-**Failure investigation:** Force one optional spoke to fail and explain from the quorum output whether the orchestrator continued, fell back, or failed closed.
+**Investigação de falha:** Force um spoke opcional a falhar e explique a partir da saída de quórum se o orquestrador continuou, fez fallback ou falhou fechado.
 
-## Task 8: Clean up
+## Tarefa 8: Limpeza
 
-**Remove Azure resources**
+**Remover recursos Azure**
 
-1. Run the following commands:
+1. Execute os seguintes comandos:
 
 ```powershell
 $env:AZURE_DEV_USER_AGENT='microsoft_foundry_skill'
@@ -397,19 +398,19 @@ azd down --purge --force
 Remove-Item Env:AZURE_DEV_USER_AGENT
 ```
 
-2. Confirm the resource group is deleted.
-3. Remove generated response artifacts.
+2. Confirme que o grupo de recursos foi excluído.
+3. Remova artefatos de response gerados.
 
-**Deactivate the virtual environment**
+**Desativar o ambiente virtual**
 
-4. Run this command in every terminal where `(.venv)` appears in the prompt:
+4. Execute este comando em cada terminal onde `(.venv)` apareça no prompt:
 
 ```powershell
 deactivate
 ```
 
-5. Confirm that `(.venv)` no longer appears before changing to another lab directory.
+5. Confirme que `(.venv)` não aparece mais antes de mudar para outro diretório de laboratório.
 
-## Summary
+## Resumo
 
-You implemented live parallel specialist calls, synchronization, quorum policy, failure isolation, and supervisor synthesis in Microsoft Foundry.
+Você implementou chamadas especialistas paralelas ao vivo, sincronização, política de quórum, isolamento de falhas e síntese de supervisor no Microsoft Foundry.

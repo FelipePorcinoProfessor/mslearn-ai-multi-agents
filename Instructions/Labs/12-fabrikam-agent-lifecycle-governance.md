@@ -1,49 +1,50 @@
 ---
 lab:
-  title: 'Govern a multi-agent topology lifecycle'
-  description: 'Use Microsoft Foundry and Cosmos DB interfaces to govern agent versions, quotas, rate limits, metering, chargeback, and retirement.'
+  title: 'Governar o ciclo de vida de uma topologia de múltiplos agentes'
+  description: 'Use as interfaces do Microsoft Foundry e do Cosmos DB para governar versões de agentes, cotas, limites de taxa, medição, rateio de custos e desativação.'
   duration: 45
   level: 400
   islab: true
   status: 'released'
+layout: default
 ---
 
-# Govern a multi-agent topology lifecycle
+# Governar o ciclo de vida de uma topologia de múltiplos agentes
 
-## Customer scenario
+## Cenário do cliente
 
-Fabrikam must govern releases of a code-review topology containing a scanner, reviewer, and orchestrator. The team must know which Foundry versions belong to each logical release, prove why the topology was approved, control tenant usage, and retire obsolete component versions without breaking consumers.
+Fabrikam deve governar lançamentos de uma topologia de revisão de código contendo um scanner, um reviewer e um orchestrator. A equipe precisa saber quais versões do Foundry pertencem a cada release lógica, comprovar por que a topologia foi aprovada, controlar o uso por tenant e aposentar versões de componentes obsoletas sem quebrar consumidores.
 
-## Lab scenario
+## Cenário do laboratório
 
-You will provision a Foundry project, model deployment, and Cosmos DB usage registry. You will inventory Foundry agents through `AIProjectClient`, implement a release gate, create versioned prompt agents for the scanner, reviewer, and orchestrator, enforce concrete usage controls, and execute a governed version retirement.
+Você irá provisionar um projeto Foundry, model deployment e um registry de uso no Cosmos DB. Você fará inventário de agentes Foundry através de `AIProjectClient`, implementará um gate de release, criará prompt agents versionados para o scanner, reviewer e orchestrator, aplicará controles de uso concretos e executará uma aposentadoria de versão governada.
 
-<!-- LAB DIAGRAM PLACEHOLDER: Show topology promotion, logical-to-Foundry version mapping, usage metering, and gated retirement. -->
+<!-- PLACEHOLDER DO DIAGRAMA DO LAB: Mostrar promoção da topologia, mapeamento de versão lógica para Foundry, medição de uso e aposentadoria com gate. -->
 
-By the end of this exercise, you will be able to:
+Ao final deste exercício, você será capaz de:
 
-- Enumerate prompt agents and immutable versions from the Foundry registry.
-- Promote one approved three-agent topology as a governed release.
-- Preserve a reproducible mapping between logical topology versions and Foundry versions.
-- Enforce a 60-request-per-minute limit and 1,000,000-token monthly quota atomically.
-- Meter usage and allocate estimated USD charges to a tenant and cost center.
-- Retire one disposable prompt-agent version through explicit governance controls.
+- Enumerar prompt agents e versões imutáveis do registro do Foundry.
+- Promover uma topologia aprovada de três agentes como um release governado.
+- Preservar um mapeamento reproduzível entre versões lógicas de topologia e versões Foundry.
+- Aplicar atomicamente um limite de 60 requisições por minuto e uma cota mensal de 1.000.000 tokens.
+- Medir uso e alocar estimativas em USD para um tenant e centro de custo.
+- Aposentar uma versão descartável de prompt-agent através de controles explícitos de governança.
 
-> **Important**: Use only the synthetic prompt-agent versions created during this exercise. Never point the retirement command at any other agent or version.
+> **Importante**: Use somente as versões sintéticas de prompt-agent criadas durante este exercício. Nunca aponte o comando de aposentadoria para qualquer outro agente ou versão.
 
-## Task 1: Prepare the lab
+## Tarefa 1: Preparar o laboratório
 
-1. Install [Python 3.10+](https://www.python.org/downloads/), [Azure CLI 2.80+](https://learn.microsoft.com/cli/azure/install-azure-cli), [Azure Developer CLI 1.23+](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd), and the [`azure.ai.agents` azd extension](https://learn.microsoft.com/azure/foundry/agents/how-to/install-cli-foundry-extensions).
-2. Use a subscription with Foundry availability, permission to create an account and project, permission to deploy the selected model, and project access that allows prompt-agent version management.
+1. Instale [Python 3.10+](https://www.python.org/downloads/), [Azure CLI 2.80+](https://learn.microsoft.com/cli/azure/install-azure-cli), [Azure Developer CLI 1.23+](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd) e a extensão [`azure.ai.agents` azd](https://learn.microsoft.com/azure/foundry/agents/how-to/install-cli-foundry-extensions).
+2. Use uma subscription com disponibilidade do Foundry, permissão para criar uma account e project, permissão para implantar o modelo selecionado e acesso ao projeto que permita gerenciamento de versões de prompt-agent.
 
-3. If you haven't already done so, clone the [lab source repository](https://github.com/MicrosoftLearning/mslearn-ai-multi-agents/tree/main), or fork the repository and clone your fork:
+3. Se ainda não fez, clone o [repositório de origem do laboratório](https://github.com/MicrosoftLearning/mslearn-ai-multi-agents/tree/main), ou faça um fork do repositório e clone seu fork:
 
 ```console
 git clone https://github.com/MicrosoftLearning/mslearn-ai-multi-agents.git
 ```
 
-4. Open the cloned repository in Visual Studio Code.
-5. Validate the required tools, credentials, and active subscription from the VS Code terminal:
+4. Abra o repositório clonado no Visual Studio Code.
+5. Valide as ferramentas necessárias, credenciais e subscription ativa a partir do terminal do VS Code:
 
 ```powershell
 cd Allfiles\12-fabrikam-agent-lifecycle-governance
@@ -53,41 +54,41 @@ python --version
 az account show --output table
 ```
 
-**Architecture checkpoint**
+**Ponto de verificação arquitetural**
 
-Review `infra/main.bicep`, the approved version manifest, `src/lifecycle.py`, and `src/usage.py`, then use this table to locate each operation that can create, meter, or delete state:
+Revise `infra/main.bicep`, o manifesto de versão aprovado, `src/lifecycle.py` e `src/usage.py`, então use esta tabela para localizar cada operação que pode criar, medir ou deletar estado:
 
-| Function | Control to inspect |
+| Função | Controle a inspecionar |
 |---|---|
-| `promote_topology` | `validate_promotion` runs before `create_version`; a later creation failure removes versions created by that attempt. |
-| `retire_version` | All retirement gates precede `delete_version`. The target is one lab-created Foundry version, not a logical topology version. |
-| `enforce_and_meter_usage` | Placeholder 2 becomes one retry loop for rate/quota checks, charge calculation, and conditional meter replacement. It does not mutate Foundry versions. |
+| `promote_topology` | `validate_promotion` é executado antes de `create_version`; uma falha de criação posterior remove versões criadas por essa tentativa. |
+| `retire_version` | Todos os gates de aposentadoria precedem `delete_version`. O alvo é uma versão Foundry criada neste laboratório, não uma versão lógica da topologia. |
+| `enforce_and_meter_usage` | Placeholder 2 se torna um único laço de retry para checagens de taxa/cota, cálculo de cobrança e substituição condicional do medidor. Ele não muta versões do Foundry. |
 
-Before continuing, confirm that promotion, usage metering, and retirement have separate mutation boundaries and fail-closed controls.
+Antes de continuar, confirme que promoção, medição de uso e aposentadoria têm fronteiras de mutação separadas e controles em modo 'falhar-fechado'.
 
-## Task 2: Build the virtual environment
+## Tarefa 2: Construir o ambiente virtual
 
-1. On Windows, run:
+1. No Windows, execute:
 
 ```powershell
 ./scripts/setup.ps1
 . ./.venv/Scripts/Activate.ps1
 ```
 
-> On macOS/Linux, run `bash scripts/setup.sh` and `source .venv/bin/activate` instead.
+> No macOS/Linux, execute `bash scripts/setup.sh` e `source .venv/bin/activate` em vez disso.
 
-2. Review `registry/fabrikam-review-topology-v2.4.0.yaml`. It defines the three agents, instructions, logical versions, compatibility declarations, evaluation results, and approval evidence used in this exercise.
+2. Revise `registry/fabrikam-review-topology-v2.4.0.yaml`. Ele define os três agentes, instruções, versões lógicas, declarações de compatibilidade, resultados de avaliação e evidência de aprovação usados neste exercício.
 
-## Task 3: Deploy Azure resources
+## Tarefa 3: Implantar recursos do Azure
 
-1. Check Foundry and Cosmos DB costs and lifecycle/data-plane access. `azd` provisions infrastructure; the application creates agent versions later.
-2. Set `$azureRegion` to an approved region that supports the required model and services.
-3. Replace the example value `eastus2` if needed.
-> **Resource group:** If your lab environment provides a precreated resource group, set `$resourceGroupName` to its name. Otherwise, leave `$resourceGroupName` empty so the script creates a unique resource group in your subscription.
+1. Verifique custos do Foundry e do Cosmos DB e acesso ao plano de dados/lifecycle. `azd` provisiona a infraestrutura; a aplicação cria versões de agente posteriormente.
+2. Defina `$azureRegion` para uma região aprovada que suporte o modelo e serviços necessários.
+3. Substitua o valor de exemplo `eastus2` se necessário.
+> **Grupo de recursos:** Se o ambiente do laboratório fornecer um resource group pré-criado, defina `$resourceGroupName` com seu nome. Caso contrário, deixe `$resourceGroupName` vazio para que o script crie um resource group único na sua subscription.
 
-> **Note:** `AZURE_DEV_USER_AGENT` tags provisioning for attribution and is not exported to `.env`. Remove it afterward to avoid tagging unrelated commands.
+> **Observação:** `AZURE_DEV_USER_AGENT` marca o provisionamento para atribuição e não é exportado para `.env`. Remova-o depois para evitar taguear comandos não relacionados.
 
-4. Run the following commands:
+4. Execute os seguintes comandos:
 
 ```powershell
 $azureRegion = 'eastus2'
@@ -112,28 +113,28 @@ azd env get-values | Out-File .env -Encoding utf8
 Remove-Item Env:AZURE_DEV_USER_AGENT
 ```
 
-> Note: If provisioning fails, inspect the first Azure deployment error. Model or region availability, extension compatibility, quota, and role-assignment permissions are common causes. Correct the cause, then run `azd provision` again.
+> Observação: Se o provisionamento falhar, inspecione o primeiro erro de implantação do Azure. Disponibilidade de modelo ou região, compatibilidade de extensão, cota e permissões de role-assignment são causas comuns. Corrija a causa e então execute `azd provision` novamente.
 
-5. After provisioning succeeds, validate that `.env` includes the Foundry project endpoint and ID, `FOUNDRY_MODEL_NAME`, `FOUNDRY_MODEL_VERSION`, the Cosmos DB endpoint and container values, and `USAGE_IDENTITY_CLIENT_ID`. The file contains resource identifiers and parameterized settings, not keys or tokens.
-6. Assign your development identity the minimum Foundry role required to manage prompt agents at project scope and the Cosmos DB Built-in Data Contributor role at the provisioned account scope.
-7. Do not add keys, connection strings, or client secrets.
+5. Após o provisionamento ter sucesso, valide que `.env` inclui o endpoint e ID do projeto Foundry, `FOUNDRY_MODEL_NAME`, `FOUNDRY_MODEL_VERSION`, os valores do endpoint e container do Cosmos DB, e `USAGE_IDENTITY_CLIENT_ID`. O arquivo contém identificadores de recurso e configurações parametrizadas, não chaves ou tokens.
+6. Atribua à sua identidade de desenvolvimento o papel mínimo do Foundry necessário para gerenciar prompt agents no escopo do projeto e o papel Cosmos DB Built-in Data Contributor no escopo da conta provisionada.
+7. Não adicione chaves, connection strings ou client secrets.
 
-> **Network access for this lab:** The Bicep template enables native public network access for Foundry and Cosmos DB so the local application can reach both data-plane endpoints. Microsoft Entra authentication and Azure RBAC are still required. After deployment, confirm public access on both resources and confirm that the Foundry default network action is **Allow**. Production environments should use an approved selected-network or private-endpoint design.
+> **Acesso de rede para este laboratório:** O template Bicep habilita o acesso público nativo para Foundry e Cosmos DB para que a aplicação local possa alcançar ambos endpoints do plano de dados. Autenticação Microsoft Entra e Azure RBAC ainda são exigidas. Após a implantação, confirme o acesso público em ambos os recursos e confirme que a ação de rede padrão do Foundry está em **Permitir (Allow)**. Ambientes de produção devem usar um design selected-network aprovado ou private-endpoint.
 
-## Task 4: Implement the solution
+## Tarefa 4: Implementar a solução
 
-Each placeholder marks incomplete code. Copy each supplied snippet into its placeholder location, keep the `LAB PLACEHOLDER` comment, replace only the indicated incomplete line or block, and preserve the surrounding indentation.
+Cada placeholder marca código incompleto. Copie cada trecho fornecido para sua localização de placeholder, mantenha o comentário `LAB PLACEHOLDER`, substitua somente a linha ou bloco indicado como incompleto e preserve a indentação ao redor.
 
-**Implement the promotion gate**
+**Implemente a verificação de promoção**
 
-1. Open `src/lifecycle.py` and find **LAB PLACEHOLDER 1** in `validate_promotion`:
+1. Abra `src/lifecycle.py` e encontre **LAB PLACEHOLDER 1** em `validate_promotion`:
 
 ```python
 # LAB PLACEHOLDER 1: Replace this line with the Task 1 sample.
 raise NotImplementedError("Complete validate_promotion in Task 1")
 ```
 
-2. Replace only the `raise NotImplementedError` line beneath it with this code:
+2. Substitua apenas a linha `raise NotImplementedError` logo abaixo por este código:
 
 ```python
 failures: list[str] = []
@@ -196,20 +197,20 @@ if failures:
   raise PermissionError("Promotion denied: " + "; ".join(failures))
 ```
 
-The gate collects all failures: required roles, compatibility, evaluation thresholds, explicit material-change approval, and an existing technical file. Invalid or missing evidence denies promotion before version creation.
+O gate coleta todas as falhas: papéis exigidos, compatibilidade, limiares de avaliação, aprovação explícita de material-change e um arquivo técnico existente. Evidência inválida ou ausente nega a promoção antes da criação de versões.
 
-3. Leave `promote_topology` unchanged. It applies the gate once for all three agents and returns the logical-to-Foundry version map.
+3. Deixe `promote_topology` inalterado. Ele aplica o gate uma vez para os três agentes e retorna o mapa lógico-para-Foundry das versões.
 
-**Enforce and meter usage atomically**
+**Aplicar e medir uso atomicamente**
 
-4. Open `src/usage.py` and find **LAB PLACEHOLDER 2** in `enforce_and_meter_usage`:
+4. Abra `src/usage.py` e encontre **LAB PLACEHOLDER 2** em `enforce_and_meter_usage`:
 
 ```python
 # LAB PLACEHOLDER 2: Replace this line with the Task 2 sample.
 raise NotImplementedError("Complete enforce_and_meter_usage in Task 2")
 ```
 
-5. Replace only the `raise NotImplementedError` line beneath it with this code:
+5. Substitua apenas a linha `raise NotImplementedError` logo abaixo por este código:
 
 ```python
 controls = policy["usage_governance"]
@@ -303,11 +304,11 @@ for _ in range(max_attempts):
 raise RuntimeError("Usage meter update conflicted too many times")
 ```
 
-The limit checks occur before the item mutation. `IfNotModified` binds the replacement to the `_etag` read by this attempt; a concurrent writer causes HTTP 412 and a retry instead of a lost increment. The 60 requests per UTC minute, 1,000,000 monthly tokens, and USD 0.005 per 1,000 tokens remain parameterized in `policy/promotion-policy.yaml`. They are application governance values, not Azure model prices.
+As checagens de limite ocorrem antes da mutação do item. `IfNotModified` vincula a substituição ao `_etag` lido por esta tentativa; um escritor concorrente causa HTTP 412 e um retry ao invés de um incremento perdido. O limite de 60 requisições por minuto UTC, 1.000.000 tokens mensais e USD 0.005 por 1.000 tokens permanecem parametrizados em `policy/promotion-policy.yaml`. Eles são valores de governança da aplicação, não preços de modelo do Azure.
 
-**Check the completed code**
+**Verifique o código completo**
 
-6. Run the following checks:
+6. Execute as seguintes checagens:
 
 ```powershell
 python -m py_compile src/main.py src/lifecycle.py src/usage.py scripts/preflight.py
@@ -315,19 +316,19 @@ python scripts/preflight.py
 Get-ChildItem src -Filter *.py | Select-String -Pattern 'NotImplementedError'
 ```
 
-Preflight must end with `READY (local)`, and the final command must return no matches. Project and Cosmos configuration can remain `INFO` before provisioning.
+A checagem preliminar deve terminar com `READY (local)`, e o comando final deve retornar sem correspondências. A configuração de projeto e do Cosmos pode permanecer `INFO` antes do provisionamento.
 
-## Task 5: Run the solution
+## Tarefa 5: Executar a solução
 
-1. Record the Foundry inventory before promotion:
+1. Registre o inventário do Foundry antes da promoção:
 
 ```powershell
 python -m src.main inventory
 ```
 
-In a fresh project, expect an empty list. Retain the inventory as your baseline.
+Em um projeto novo, espere uma lista vazia. Mantenha o inventário como sua linha de base.
 
-2. Promote the approved topology:
+2. Promova a topologia aprovada:
 
 ```powershell
 $promotion = python -m src.main promote | ConvertFrom-Json
@@ -337,7 +338,7 @@ $reviewerVersion = $promotion.versions.reviewer.foundry_version
 $orchestratorVersion = $promotion.versions.orchestrator.foundry_version
 ```
 
-3. Inspect release `2.4.0` and its `scanner`, `reviewer`, and `orchestrator` logical-to-Foundry version mappings:
+3. Inspecione o release `2.4.0` e seus mapeamentos lógico-para-Foundry `scanner`, `reviewer` e `orchestrator`:
 
 ```powershell
 $promotion | ConvertTo-Json -Depth 10
@@ -346,210 +347,210 @@ $reviewerVersion
 $orchestratorVersion
 ```
 
-Expected logical versions are `scanner: 1.2.0`, `reviewer: 1.1.0`, and `orchestrator: 1.3.0`. Each Foundry version value must be present; do not assume it matches the logical semantic version.
+As versões lógicas esperadas são `scanner: 1.2.0`, `reviewer: 1.1.0` e `orchestrator: 1.3.0`. Cada valor de versão Foundry deve estar presente; não presuma que corresponda à versão semântica lógica.
 
-4. Inventory the project again:
+4. Faça o inventário do projeto novamente:
 
 ```powershell
 python -m src.main inventory
 ```
 
-5. Confirm all three captured versions appear in inventory. In the Foundry portal, select the project > **Agents** and match each version to its PowerShell variable.
+5. Confirme que todas as três versões capturadas aparecem no inventário. No portal do Foundry, selecione o projeto > **Agentes (Agents)** e compare cada versão com sua variável do PowerShell.
 
-If version creation fails, promotion attempts rollback in reverse creation order. When rollback succeeds, the original promotion exception and traceback are preserved. When any cleanup fails, the terminal error reports both the original promotion error and every exact `agent:version` cleanup failure; retain those targets for reconciliation.
+Se a criação de versão falhar, tentativas de promoção fazem reversão na ordem inversa de criação. Quando a reversão tem sucesso, a exceção original de promoção e traceback são preservados. Quando qualquer limpeza falha, o erro no terminal relata tanto o erro de promoção original quanto cada falha exata de limpeza `agent:version`; retenha esses alvos para reconciliação.
 
-**Test a denied promotion**
+**Testar uma promoção negada**
 
-6. Snapshot inventory before testing denials:
+6. Faça um instantâneo do inventário antes de testar negações:
 
 ```powershell
 $inventoryBeforeDeniedPromotion = python -m src.main inventory | ConvertFrom-Json
 $inventoryBeforeDeniedPromotion | ConvertTo-Json -Depth 10
 ```
 
-7. In `registry/fabrikam-review-topology-v2.4.0.yaml`, change `evaluation.precision` from `0.96` to `0.94`, below `minimum_precision: 0.95`.
+7. Em `registry/fabrikam-review-topology-v2.4.0.yaml`, altere `evaluation.precision` de `0.96` para `0.94`, abaixo de `minimum_precision: 0.95`.
 
-8. Attempt promotion without overwriting `$promotion`:
+8. Tente promover sem sobrescrever `$promotion`:
 
 ```powershell
 python -m src.main promote
 ```
 
-Expect `PermissionError: Promotion denied: precision is below its minimum`, before any version creation.
+Espere `PermissionError: Promotion denied: precision is below its minimum`, antes de qualquer criação de versão.
 
-9. Capture inventory after the denial:
+9. Capture o inventário após a negação:
 
 ```powershell
 $inventoryAfterDeniedPromotion = python -m src.main inventory | ConvertFrom-Json
 $inventoryAfterDeniedPromotion | ConvertTo-Json -Depth 10
 ```
 
-10. Compare the snapshots:
+10. Compare os instantâneos:
 
 ```powershell
 Compare-Object ($inventoryBeforeDeniedPromotion | ConvertTo-Json -Depth 10) ($inventoryAfterDeniedPromotion | ConvertTo-Json -Depth 10)
 ```
 
-11. Expect no differences. Refresh all three portal version lists to confirm no new versions, then restore `precision: 0.96`.
-12. Under `topology.compatibility`, change `reviewer_requires_scanner_schema` from `'>=2.0,<3.0'` to `'>=3.0,<4.0'`.
-13. Attempt promotion:
+11. Não espere diferenças. Atualize as três listas de versão no portal para confirmar que não há novas versões, então restaure `precision: 0.96`.
+12. Em `topology.compatibility`, altere `reviewer_requires_scanner_schema` de `'>=2.0,<3.0'` para `'>=3.0,<4.0'`.
+13. Tente promover:
 
 ```powershell
 python -m src.main promote
 ```
 
-14. Expect `PermissionError: Promotion denied: scanner output schema is incompatible with reviewer`.
-15. Capture inventory again:
+14. Espere `PermissionError: Promotion denied: scanner output schema is incompatible with reviewer`.
+15. Capture o inventário novamente:
 
 ```powershell
 $inventoryAfterCompatibilityDenial = python -m src.main inventory | ConvertFrom-Json
 ```
 
-16. Compare with the pre-denial snapshot:
+16. Compare com o instantâneo pré-negação:
 
 ```powershell
 Compare-Object ($inventoryBeforeDeniedPromotion | ConvertTo-Json -Depth 10) ($inventoryAfterCompatibilityDenial | ConvertTo-Json -Depth 10)
 ```
 
-17. Expect no differences, then restore `reviewer_requires_scanner_schema` to `'>=2.0,<3.0'`.
+17. Não espere diferenças, então restaure `reviewer_requires_scanner_schema` para `'>=2.0,<3.0'`.
 
-**Reconcile versions left by a failed rollback**
+**Reconcilie versões deixadas por uma reversão com falha**
 
-Use this administrative operation only for exact `agent:version` targets reported in a promotion cleanup failure. Never pass a version from the successful `$promotion` mapping.
+Use esta operação administrativa somente para alvos exatos `agent:version` reportados em uma falha de limpeza de promoção. Nunca passe uma versão do mapeamento bem-sucedido `$promotion`.
 
 ```powershell
 python -m src.main reconcile --orphan-version scanner:<foundry-version> --orphan-version reviewer:<foundry-version> --confirm-delete-orphans
 ```
 
-The result separates `deleted` from `already_absent`. Run the same command again and confirm that every target moves to `already_absent`, demonstrating idempotent reconciliation. If any delete fails, the error reports versions already deleted, versions already absent, and every remaining cleanup failure so the command can be safely retried.
+O resultado separa `deleted` de `already_absent`. Execute o mesmo comando novamente e confirme que cada alvo passa para `already_absent`, demonstrando reconciliação idempotente. Se alguma exclusão falhar, o erro relata versões já deletadas, versões já ausentes e cada falha de limpeza remanescente para que o comando possa ser tentado novamente com segurança.
 
-**Verify metering and usage controls**
+**Verificar medição e controles de uso**
 
-18. Run the metering command once:
-
-```powershell
-python -m src.main meter
-```
-
-In the terminal output, confirm:
-
-- `decision` is `allow`.
-- `allocation_key` is `synthetic-tenant-a:FAB-SEC-042`.
-- `monthly_tokens` increased by `1250` and `monthly_token_quota` is `1000000`.
-- `rate_window_requests` increased by `1` and `requests_per_minute` is `60`.
-- `estimated_charge` increased by `0.00625`, `currency` is `USD`, and `metered_at` contains a UTC timestamp.
-
-19. Run it a second time:
+18. Execute o comando de medição uma vez:
 
 ```powershell
 python -m src.main meter
 ```
 
-For the first two requests in one UTC minute, expect `monthly_tokens: 2500`, `rate_window_requests: 2`, and `estimated_charge: 0.0125`. Otherwise, compare increments of 1250 tokens and USD 0.00625 in the same monthly meter; the rate count resets when the UTC minute changes.
+Na saída do terminal, confirme:
 
-20. In the Azure portal, open Cosmos DB > **Data Explorer** > **lifecycle** > **usage-meters** > **Items**. Open the item beginning `synthetic-tenant-a:FAB-SEC-042` and confirm that partition key. Record `monthly_tokens`, `request_count`, `rate_window_requests`, `estimated_charge`, and `_ts`; keep the item open for denial tests.
+- `decision` é `allow`.
+- `allocation_key` é `synthetic-tenant-a:FAB-SEC-042`.
+- `monthly_tokens` aumentou em `1250` e `monthly_token_quota` é `1000000`.
+- `rate_window_requests` aumentou em `1` e `requests_per_minute` é `60`.
+- `estimated_charge` aumentou em `0.00625`, `currency` é `USD`, e `metered_at` contém um timestamp UTC.
 
-**Test the per-minute request limit**
-
-21. In `policy/promotion-policy.yaml`, change `requests_per_minute` from `60` to `1`. Wait for a new UTC minute if you have already metered a request in the current one.
-22. Run the first request:
-
-```powershell
-python -m src.main meter
-```
-
-23. Expect `decision: allow` and `rate_window_requests: 1`. Refresh and reopen the Data Explorer item; record its counters, charge, and `_ts`.
-24. Run a second request before the UTC minute changes:
+19. Execute-o uma segunda vez:
 
 ```powershell
 python -m src.main meter
 ```
 
-25. Expect `PermissionError: Per-minute request limit exceeded`. Refresh the item and confirm all five recorded values are unchanged. Restore `requests_per_minute: 60`.
+Para as primeiras duas requisições dentro de um minuto UTC, espere `monthly_tokens: 2500`, `rate_window_requests: 2` e `estimated_charge: 0.0125`. Caso contrário, compare incrementos de 1250 tokens e USD 0.00625 no mesmo medidor mensal; o contador de taxa reseta quando o minuto UTC muda.
 
-**Test the monthly token quota**
+20. No portal do Azure, abra Cosmos DB > **Explorador de Dados (Data Explorer)** > **lifecycle** > **usage-meters** > **Itens (Items)**. Abra o item que começa com `synthetic-tenant-a:FAB-SEC-042` e confirme sua partition key. Registre `monthly_tokens`, `request_count`, `rate_window_requests`, `estimated_charge` e `_ts`; mantenha o item aberto para testes de negação.
 
-26. In `assets/usage-request.json`, change `token_count` from `1250` to `1000001`.
-27. Run:
+**Testar o limite de requisições por minuto**
+
+21. Em `policy/promotion-policy.yaml`, altere `requests_per_minute` de `60` para `1`. Aguarde um novo minuto UTC se você já tiver medido uma requisição no minuto atual.
+22. Execute a primeira requisição:
 
 ```powershell
 python -m src.main meter
 ```
 
-28. Expect `PermissionError: Monthly token quota exceeded`. Refresh the item and confirm the five recorded values remain unchanged. Verify `scanner`, logical version `1.2.0`, tenant `synthetic-tenant-a`, and cost center `FAB-SEC-042`, with no credentials or request content. Restore `token_count: 1250`.
+23. Espere `decision: allow` e `rate_window_requests: 1`. Atualize e reabra o item no Explorador de Dados; registre seus contadores, cobrança e `_ts`.
+24. Execute uma segunda requisição antes de o minuto UTC mudar:
 
-Meter counters are post-update values. Estimated charges are application allocations, not Azure invoices; denied requests must leave counters and charge unchanged.
+```powershell
+python -m src.main meter
+```
 
-## Task 6: Validate the implementation
+25. Espere `PermissionError: Per-minute request limit exceeded`. Atualize o item e confirme que todos os cinco valores registrados permanecem inalterados. Restaure `requests_per_minute: 60`.
 
-1. Use the Foundry portal and SDK output to verify that all three prompt-agent versions in the promoted release exist and match `$scannerVersion`, `$reviewerVersion`, and `$orchestratorVersion`.
-2. Run inventory again and compare it with the original evidence.
-3. Review the technical file, topology compatibility declarations, and manifest diff as the approval record.
+**Testar a cota mensal de tokens**
 
-4. For retirement practice, use the disposable `scanner` version created by this lab.
-5. Open `assets/retirement-request.json` and replace its `version` value with the value shown in `$scannerVersion`.
-6. Review the request and confirm that it records at least 90 days between deprecation and deletion, zero consumers, zero pins, archive completion, deprecation registration, and governance approval.
-7. Immediately before running a retirement command, confirm that the command targets agent `scanner` and the exact disposable version stored in `$scannerVersion`. Stop if either value differs.
+26. Em `assets/usage-request.json`, altere `token_count` de `1250` para `1000001`.
+27. Execute:
 
-8. Test each gate separately: consumers or pins set to `1`, archive or deprecation registration set to `false`, approval set to `pending`, a mismatched request version, a shorter notice interval, and a future deletion date. Keep the CLI target fixed to this lab's `$scannerVersion`. After each denial and inventory check below, restore the changed field before testing the next gate.
-9. For each change, run:
+```powershell
+python -m src.main meter
+```
+
+28. Espere `PermissionError: Monthly token quota exceeded`. Atualize o item e confirme que os cinco valores registrados permanecem inalterados. Verifique `scanner`, versão lógica `1.2.0`, tenant `synthetic-tenant-a` e centro de custo `FAB-SEC-042`, sem credenciais ou conteúdo de requisição. Restaure `token_count: 1250`.
+
+Os contadores do medidor são valores pós-atualização. Cobranças estimadas são alocações da aplicação, não faturas do Azure; requisições negadas devem deixar contadores e cobrança inalterados.
+
+## Tarefa 6: Validar a implementação
+
+1. Use o portal do Foundry e o output do SDK para verificar que as três versões de prompt-agent no release promovido existem e correspondem a `$scannerVersion`, `$reviewerVersion` e `$orchestratorVersion`.
+2. Execute o inventário novamente e compare com a evidência original.
+3. Revise o arquivo técnico, declarações de compatibilidade da topologia e o diff do manifesto como registro de aprovação.
+
+4. Para prática de aposentadoria, utilize a versão descartável `scanner` criada por este laboratório.
+5. Abra `assets/retirement-request.json` e substitua seu valor `version` pelo valor mostrado em `$scannerVersion`.
+6. Revise a solicitação e confirme que ela registra pelo menos 90 dias entre descontinuação e exclusão, zero consumidores, zero pins, conclusão de arquivamento, registro de descontinuação e aprovação de governança.
+7. Imediatamente antes de executar um comando de aposentadoria, confirme que o comando tem como alvo o agente `scanner` e a versão descartável exata armazenada em `$scannerVersion`. Pare se qualquer um desses valores diferir.
+
+8. Teste cada gate separadamente: consumidores ou pins definidos para `1`, arquivamento ou registro de descontinuação definidos para `false`, aprovação definida para `pending`, uma versão de solicitação que não corresponde, um intervalo de aviso mais curto, e uma data de exclusão futura. Mantenha o alvo do CLI fixo para o `$scannerVersion` deste laboratório. Após cada negação e verificação de inventário abaixo, restaure o campo alterado antes de testar o próximo gate.
+9. Para cada alteração, execute:
 
 ```powershell
 python -m src.main retire --agent-name scanner --agent-version $scannerVersion --confirm-delete-version
 ```
 
-10. Confirm that the terminal shows `Retirement denied` and names the failed gate.
-11. Run inventory after each denial and confirm that the `scanner` version in `$scannerVersion` still exists.
-12. Restore the approved synthetic request.
-13. Run:
+10. Confirme que o terminal mostra `Retirement denied` e nomeia o gate que falhou.
+11. Execute o inventário após cada negação e confirme que a versão `scanner` em `$scannerVersion` ainda existe.
+12. Restaure a solicitação sintética aprovada.
+13. Execute:
 
 ```powershell
 python -m src.main retire --agent-name scanner --agent-version $scannerVersion --confirm-delete-version
 ```
 
-14. Confirm that the success output shows `retired: true` and repeats the enforced gate evidence.
-15. Run inventory again and confirm that `$scannerVersion` is absent while the `reviewer` and `orchestrator` versions remain. This demonstrates component retirement within a topology.
+14. Confirme que o output de sucesso mostra `retired: true` e repete a evidência dos gates aplicados.
+15. Execute o inventário novamente e confirme que `$scannerVersion` está ausente enquanto as versões `reviewer` e `orchestrator` permanecem. Isto demonstra a aposentadoria de um componente dentro de uma topologia.
 
-16. Retain the Cosmos DB snapshots and both usage-denial messages alongside the release mapping, approval record, and retirement evidence.
+16. Preserve os instantâneos do Cosmos DB e ambas as mensagens de negação de uso junto com o mapeamento do release, o registro de aprovação e a evidência de aposentadoria.
 
-## Optional challenge: Block an incompatible promotion
+## Desafio opcional: Bloquear uma promoção incompatível
 
-Create a synthetic reviewer version whose output contract is incompatible with an active orchestrator consumer.
+Crie uma versão sintética do reviewer cuja contract de saída é incompatível com um consumer orchestrator ativo.
 
-**Expected output:** Promotion is blocked and the evidence names the failed compatibility rule and affected consumer.
+**Saída esperada:** A promoção é bloqueada e a evidência nomeia a regra de compatibilidade que falhou e o consumer afetado.
 
-**Failure investigation:** Attempt to retire a version still referenced by the topology and explain the lifecycle-policy rejection.
+**Investigação de falha:** Tente aposentar uma versão ainda referenciada pela topologia e explique a rejeição pela política de ciclo de vida.
 
-## Task 7: Review the design
+## Tarefa 7: Revisar o design
 
-1. Answer these questions:
+1. Responda a estas perguntas:
 
-- Why is a prompt hash part of an agent version?
-- Which changes require manual or customer approval?
-- Why should deprecation and consumer migration precede deletion of one topology component?
-- What proves a retired version has no remaining consumers?
-- Why must quota enforcement and meter increments use one conditional update?
-- How does chargeback evidence differ from an Azure invoice?
+- Por que um hash do prompt faz parte de uma versão de agente?
+- Quais mudanças exigem aprovação manual ou do cliente?
+- Por que a descontinuação e migração de consumidores devem preceder a exclusão de um componente de topologia?
+- O que prova que uma versão aposentada não tem consumidores remanescentes?
+- Por que a aplicação de cota e os incrementos do medidor devem usar uma única atualização condicional?
+- Como a evidência de rateio de custos difere de uma fatura do Azure?
 
-## Task 8: Clean up
+## Tarefa 8: Limpeza
 
-**Remove Azure resources**
+**Remover recursos do Azure**
 
-1. Reconcile any exact orphan targets reported by failed promotion rollback, then delete any remaining `scanner`, `reviewer`, and `orchestrator` versions created by this lab.
-2. Run `azd down --purge`.
-3. Confirm that the Foundry project, model deployment, and Cosmos DB account are removed.
-4. Keep only synthetic manifests and evidence; remove `.env` and local caches.
+1. Reconcile quaisquer alvos órfãos exatos reportados por reversão de promoção com falha, então delete quaisquer versões `scanner`, `reviewer` e `orchestrator` remanescentes criadas por este laboratório.
+2. Execute `azd down --purge`.
+3. Confirme que o projeto Foundry, o model deployment e a conta Cosmos DB foram removidos.
+4. Mantenha apenas manifests sintéticos e evidências; remova `.env` e caches locais.
 
-**Deactivate the virtual environment**
+**Desativar o ambiente virtual**
 
-5. Run this command in every terminal where `(.venv)` appears in the prompt:
+5. Execute este comando em todo terminal onde `(.venv)` aparece no prompt:
 
 ```powershell
 deactivate
 ```
 
-6. Confirm that `(.venv)` no longer appears before leaving the working directory.
+6. Confirme que `(.venv)` não aparece mais antes de sair do diretório de trabalho.
 
-## Summary
+## Resumo
 
-You used real Foundry and Cosmos DB interfaces to govern a three-agent topology release, immutable prompt-agent versions, quotas, rate limits, usage allocation, estimated chargeback, and fail-closed retirement.
+Você usou interfaces reais do Foundry e do Cosmos DB para governar um release de topologia de três agentes, versões imutáveis de prompt-agent, cotas, limites de taxa, alocação de uso, rateio de custos estimado e aposentadoria com fail-closed.

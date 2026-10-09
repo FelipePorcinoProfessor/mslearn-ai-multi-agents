@@ -1,54 +1,55 @@
 ---
 lab:
-  title: 'Build persistent shared memory for Foundry agents'
-  description: 'Build a Microsoft Foundry Hosted Agent that recalls patient-scoped vector memory from Azure Cosmos DB with retention, context budgeting, audit, and consistency controls.'
+  title: 'Construir memória compartilhada persistente para agentes Foundry'
+  description: 'Construa um Hosted Agent do Microsoft Foundry que recupera memória vetorial com escopo de paciente do Azure Cosmos DB com retenção, orçamento de contexto, auditoria e controles de consistência.'
   duration: 45
   level: 400
   islab: true
   status: 'released'
+layout: default
 ---
 
-# Build persistent shared memory for Foundry agents
+# Construir memória compartilhada persistente para agentes Foundry
 
-## Customer scenario
+## Cenário do cliente
 
-Northwind Health's scheduling, care-navigation, and medication-support agents need shared, reviewed patient preferences. A Memory Coordinator must supply bounded, patient-scoped evidence with consistent isolation, read-your-writes behavior, retention, and auditable deletion.
+O agendamento, a navegação de cuidados e os agentes de suporte a medicação da Northwind Health precisam de preferências de paciente compartilhadas e revisadas. Um Coordenador de Memória deve fornecer evidência limitada com escopo por paciente, com isolamento consistente, comportamento de leitura-após-gravação, retenção e exclusão auditável.
 
-## Lab scenario
+## Cenário do laboratório
 
-You are the memory-platform developer. You will implement the custom memory layer in Azure Cosmos DB for NoSQL, then connect it to a Microsoft Agent Framework agent hosted by Microsoft Foundry. The agent uses a read-only local tool to recall memory for one configured synthetic patient, builds bounded context, and asks a Foundry chat model for a grounded response. Memory writes, reviewed consolidation, and destructive pruning remain explicit administrative CLI operations.
+Você é o desenvolvedor da plataforma de memória. Você implementará a camada de memória personalizada no Azure Cosmos DB para NoSQL e então a conectará a um agente do Microsoft Agent Framework hospedado pelo Microsoft Foundry. O agente usa uma ferramenta local somente leitura para recordar memória de um paciente sintético configurado, constrói um contexto limitado e solicita uma resposta fundamentada a um modelo do Foundry. Gravações de memória, consolidação revisada e poda destrutiva permanecem operações administrativas explícitas via CLI.
 
-<!-- LAB DIAGRAM PLACEHOLDER: Show the hosted agent, patient-scoped recall tool, Cosmos DB memory and audit containers, and administrative write paths. -->
+<!-- ESPAÇADOR DE DIAGRAMA DO LABORATÓRIO: Mostre o Hosted Agent, a ferramenta de recall com escopo por paciente, a memória do Cosmos DB e os contêineres de auditoria, e os caminhos administrativos de gravação. -->
 
-You build one reusable specialist with a controlled interface for other agents, not a model impersonating several agents.
+Você constrói um especialista reutilizável com uma interface controlada para outros agentes, não um modelo que se passa por vários agentes.
 
-By the end of this exercise, you will be able to:
+Ao final deste exercício, você será capaz de:
 
-- Map working, episodic, and semantic memory to appropriate persistence patterns.
-- Implement patient-scoped vector memory with Azure Cosmos DB and `VectorDistance`.
-- Apply context budgeting, retention, pruning, and audit policies.
-- Compare session and eventual consistency for memory read-after-write behavior.
-- Host a Microsoft Agent Framework agent in Foundry and ground its responses in custom Cosmos DB memory.
+- Mapear memória de trabalho, episódica e semântica para padrões de persistência apropriados.
+- Implementar memória vetorial com escopo de paciente usando Azure Cosmos DB e `VectorDistance`.
+- Aplicar orçamento de contexto, políticas de retenção, poda e auditoria.
+- Comparar consistência de sessão e eventual para comportamento de leitura-após-gravação.
+- Hospedar um agente do Microsoft Agent Framework no Foundry e fundamentar suas respostas na memória personalizada do Cosmos DB.
 
-> **Important**: Live Azure validation is required because vector indexing, RU charge, partition behavior, TTL, and consistency are service behaviors. The serverless account is billable. Use only synthetic data and run `azd down --purge` after validation.
+> **Importante**: Validação ao vivo no Azure é necessária porque indexação vetorial, consumo de RU, comportamento de partição, TTL e consistência são comportamentos do serviço. A conta serverless é cobrável. Use apenas dados sintéticos e execute `azd down --purge` após a validação.
 
-## Task 1: Prepare the lab
+## Tarefa 1: Preparar o laboratório
 
-Install [Python 3.13](https://www.python.org/downloads/), [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), [Azure Developer CLI 1.27.1 or later](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd), [Git](https://git-scm.com/downloads), [Visual Studio Code](https://code.visualstudio.com/download), and the [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python), [Bicep](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-bicep), and [Foundry Toolkit](https://marketplace.visualstudio.com/items?itemName=ms-windows-ai-studio.windows-ai-studio) extensions. You need permission to create a Cosmos DB account, Foundry account and project, model deployments, hosted agent, and role assignments. Vector search and model availability vary by region.
+Instale [Python 3.13](https://www.python.org/downloads/), [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), [Azure Developer CLI 1.27.1 or later](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd), [Git](https://git-scm.com/downloads), [Visual Studio Code](https://code.visualstudio.com/download), e as extensões [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python), [Bicep](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-bicep) e [Foundry Toolkit](https://marketplace.visualstudio.com/items?itemName=ms-windows-ai-studio.windows-ai-studio). Você precisa de permissão para criar uma conta Cosmos DB, conta e projeto Foundry, implantações de modelo, Hosted Agent e atribuições de função. A pesquisa vetorial e a disponibilidade de modelos variam por região.
 
-**Clone and open the repository**
+**Clonar e abrir o repositório**
 
-1. If you haven't already done so, clone the [lab source repository](https://github.com/MicrosoftLearning/mslearn-ai-multi-agents/tree/main), or fork the repository and clone your fork:
+1. Se você ainda não fez isso, clone o [repositório de origem do laboratório](https://github.com/MicrosoftLearning/mslearn-ai-multi-agents/tree/main), ou faça um fork do repositório e clone seu fork:
 
 ```console
 git clone https://github.com/MicrosoftLearning/mslearn-ai-multi-agents.git
 ```
 
-2. Open the cloned repository in Visual Studio Code.
+2. Abra o repositório clonado no Visual Studio Code.
 
-**Verify tools and authentication**
+**Verificar ferramentas e autenticação**
 
-3. Validate the required tools, credentials, and active subscription from the VS Code terminal:
+3. Valide as ferramentas necessárias, credenciais e assinatura ativa a partir do terminal do VS Code:
 
 ```powershell
 cd Allfiles\08-northwind-health-multi-agent-memory
@@ -59,60 +60,60 @@ az account show --output table
 ```
 
 4. Use `DefaultAzureCredential`.
-5. Do not use account keys, connection strings, real patient data, or globally shared memory partitions.
+5. Não use chaves de conta, strings de conexão, dados reais de pacientes ou partições de memória compartilhadas globalmente.
 
-**Architecture checkpoint**
+**Ponto de verificação da arquitetura**
 
-Review these boundaries before editing:
+Revise esses limites antes de editar:
 
-| Boundary | Component |
+| Limite | Componente |
 |---|---|
-| Hosted conversation and read-only recall tool | `agent.py` |
-| Durable patient-scoped memory | `src/memory_store.py` and the memory container |
-| Bounded model context | `src/context_budget.py` |
-| Session consistency transfer | `src/consistency.py` |
-| Retention and deletion | `src/retention.py` |
-| Durable audit evidence | Audit container |
-| Azure resources and synthetic input | `infra/main.bicep` and `assets/memories.json` |
+| Conversa hospedada e ferramenta de recall somente leitura | `agent.py` |
+| Memória durável com escopo por paciente | `src/memory_store.py` e o contêiner de memória |
+| Contexto de modelo limitado | `src/context_budget.py` |
+| Transferência de consistência de sessão | `src/consistency.py` |
+| Retenção e exclusão | `src/retention.py` |
+| Evidência de auditoria durável | Contêiner de auditoria |
+| Recursos do Azure e entrada sintética | `infra/main.bicep` e `assets/memories.json` |
 
-Before continuing, confirm that Cosmos DB—not conversation history—is the durable memory authority and that memory and audit records use separate containers.
+Antes de continuar, confirme que o Cosmos DB — não o histórico da conversa — é a autoridade durável de memória e que os registros de memória e auditoria usam contêineres separados.
 
-> Do not replace Cosmos operations with an in-memory list or local vector calculation.
+> Não substitua operações do Cosmos por uma lista em memória ou cálculo vetorial local.
 
-## Task 2: Build the virtual environment
+## Tarefa 2: Construir o ambiente virtual
 
-1. Create and activate the virtual environment:
+1. Crie e ative o ambiente virtual:
 
 ```powershell
 ./scripts/setup.ps1
 . ./.venv/Scripts/Activate.ps1
 ```
 
-> On macOS/Linux, run `bash scripts/setup.sh` and `source .venv/bin/activate` instead.
+> No macOS/Linux, execute `bash scripts/setup.sh` e `source .venv/bin/activate` em vez disso.
 
-2. Inspect `assets/memories.json`; the patient IDs and observations are synthetic. The starter generates embeddings at ingestion time rather than storing fixed vectors.
+2. Inspecione `assets/memories.json`; os IDs de paciente e as observações são sintéticos. O starter gera embeddings no momento da ingestão em vez de armazenar vetores fixos.
 
-## Task 3: Deploy the Azure resources
+## Tarefa 3: Implantar os recursos do Azure
 
-**Set the deployment values**
+**Definir os valores de implantação**
 
-1. Review cost, model quota, and access before provisioning.
+1. Revise custo, cota de modelo e acesso antes do provisionamento.
 
-Cosmos DB vector operations, both Foundry model deployments, and Hosted Agent compute are billable.
+Operações vetoriais do Cosmos DB, ambas as implantações de modelo do Foundry e o compute do Hosted Agent são cobráveis.
 
-2. Use a unique environment.
-3. Use synthetic data only.
-4. Remove the resources after validation.
+2. Use um ambiente único.
+3. Use apenas dados sintéticos.
+4. Remova os recursos após a validação.
 
-`azd` provisions the Bicep resources. Memory ingestion and recall run separately.
+`azd` provisiona os recursos Bicep. A ingestão e o recall de memória são executados separadamente.
 
-5. Specify an approved region where Cosmos DB vector search, Microsoft Foundry, and both model deployments are available.
-6. The following example uses `eastus2`; change it if your subscription has different model availability or quota.
-> **Resource group:** If your lab environment provides a precreated resource group, set `$resourceGroupName` to its name. Otherwise, leave `$resourceGroupName` empty so the script creates a unique resource group in your subscription.
+5. Especifique uma região aprovada onde a pesquisa vetorial do Cosmos DB, Microsoft Foundry e ambas as implantações de modelo estejam disponíveis.
+6. O exemplo a seguir usa `eastus2`; altere-o se sua assinatura tiver disponibilidade ou cota de modelo diferente.
+> **Grupo de recursos:** Se seu ambiente de laboratório fornecer um grupo de recursos pré-criado, defina `$resourceGroupName` para seu nome. Caso contrário, deixe `$resourceGroupName` vazio para que o script crie um grupo de recursos exclusivo na sua assinatura.
 
-**Validate and provision the infrastructure**
+**Validar e provisionar a infraestrutura**
 
-7. Run the following commands:
+7. Execute os seguintes comandos:
 
 ```powershell
 $azureRegion = 'eastus2'
@@ -131,28 +132,28 @@ azd provision
 azd env get-values | Out-File .env -Encoding utf8
 ```
 
-8. If provisioning fails, inspect the first Azure deployment error. Cosmos DB or model regional availability, `GlobalStandard` quota, and role-assignment permissions are common causes.
-9. Correct the relevant setting or permission, then run `azd provision` again.
+8. Se o provisionamento falhar, inspecione o primeiro erro de implantação do Azure. Disponibilidade regional do Cosmos DB ou do modelo, cota `GlobalStandard` e permissões de atribuição de função são causas comuns.
+9. Corrija a configuração ou permissão relevante e, em seguida, execute `azd provision` novamente.
 
-**Verify the generated environment**
+**Verificar o ambiente gerado**
 
-10. Confirm that `.env` includes `FOUNDRY_PROJECT_ENDPOINT`, `FOUNDRY_MODEL_NAME`, `AZURE_COSMOS_ENDPOINT`, the database and memory/audit container names, `AZURE_OPENAI_ENDPOINT`, and the embedding deployment name. `AZURE_OPENAI_ENDPOINT` points to the Foundry `AIServices` account, not a separate `kind: OpenAI` account.
-11. Allow data-plane RBAC to propagate.
-12. Do not add account keys, connection strings, or tokens.
+10. Confirme que `.env` inclui `FOUNDRY_PROJECT_ENDPOINT`, `FOUNDRY_MODEL_NAME`, `AZURE_COSMOS_ENDPOINT`, o banco de dados e os nomes dos contêineres de memória/auditoria, `AZURE_OPENAI_ENDPOINT` e o nome da implantação de embedding. `AZURE_OPENAI_ENDPOINT` aponta para a conta `AIServices` do Foundry, não para uma conta `kind: OpenAI` separada.
+11. Aguarde a propagação do Azure RBAC de plano de dados.
+12. Não adicione chaves de conta, strings de conexão ou tokens.
 
-## Task 4: Implement the solution
+## Tarefa 4: Implementar a solução
 
-Each placeholder marks incomplete code. Copy each supplied snippet into its placeholder location, keep the `LAB PLACEHOLDER` comment, replace only the indicated incomplete line or block, and preserve the surrounding indentation.
+Cada placeholder marca código incompleto. Copie cada trecho fornecido para sua localização placeholder, mantenha o comentário `LAB PLACEHOLDER`, substitua somente a linha ou bloco incompleto indicado e preserve a indentação circundante.
 
-The constructor already creates one reusable async `CosmosClient` with `DefaultAzureCredential` and session consistency. Keep that client for the lifetime of the store.
+O construtor já cria um `CosmosClient` async reutilizável com `DefaultAzureCredential` e consistência de sessão. Mantenha esse cliente enquanto o store estiver em uso.
 
-> **Tip:** After you copy and paste each Python snippet, validate its indentation against the surrounding function or class before running the code.
+> **Dica:** Depois de copiar e colar cada trecho Python, valide sua indentação em relação à função ou classe circundante antes de executar o código.
 
-**Persist an embedded memory**
+**Persistir uma memória com embedding**
 
-1. In `src/memory_store.py`, find the exact marker `# LAB PLACEHOLDER 1: Replace this line with the Task 1 sample.`
+1. Em `src/memory_store.py`, encontre o marcador exato `# LAB PLACEHOLDER 1: Replace this line with the Task 1 sample.`.
 
-2. Replace only the `raise NotImplementedError` line beneath it with:
+2. Substitua somente a linha `raise NotImplementedError` abaixo dele por:
 
 ```python
     patient_id = str(memory["patientId"])
@@ -171,15 +172,15 @@ The constructor already creates one reusable async `CosmosClient` with `DefaultA
     }
 ```
 
-Authorization happens before embedding or I/O. The returned diagnostics expose RU cost and the session token without returning memory content.
+A autorização ocorre antes do embedding ou I/O. Os diagnósticos retornados expõem o custo de RU e o token de sessão sem retornar o conteúdo da memória.
 
-The container sets `defaultTtl` to 2,592,000 seconds. An item without `ttl` inherits that container default, a positive item `ttl` overrides it, and item `ttl: -1` disables expiration for that item while TTL remains enabled on the container.
+O contêiner define `defaultTtl` para 2.592.000 segundos. Um item sem `ttl` herda esse padrão do contêiner, um item positivo `ttl` o substitui, e `ttl: -1` no item desativa a expiração para esse item enquanto o TTL permanece habilitado no contêiner.
 
-**Run partition-scoped vector recall**
+**Executar recall vetorial com escopo de partição**
 
-3. In `src/memory_store.py`, find the exact marker `# LAB PLACEHOLDER 2: Replace this line with the Task 2 sample.`
+3. Em `src/memory_store.py`, encontre o marcador exato `# LAB PLACEHOLDER 2: Replace this line with the Task 2 sample.`.
 
-4. Replace only the `raise NotImplementedError` line beneath it with:
+4. Substitua somente a linha `raise NotImplementedError` abaixo dele por:
 
 ```python
     self._authorize(patient_id)
@@ -212,15 +213,15 @@ The container sets `defaultTtl` to 2,592,000 seconds. An item without `ttl` inhe
     return results
 ```
 
-Only the validated integer is interpolated into `TOP`; patient ID and embedding remain parameters. The partition key enforces a single physical patient partition.
+Apenas o inteiro validado é interpolado em `TOP`; o ID do paciente e o embedding continuam sendo parâmetros. A chave de partição impõe uma única partição física por paciente.
 
-The lab uses a `quantizedFlat` vector index, but meaningful index-performance testing requires a meaningfully large vector population. Use at least 1,000 vectors before drawing performance conclusions; the six synthetic starter records validate query behavior, not vector-index scale or latency.
+O laboratório usa um índice vetorial `quantizedFlat`, mas testes significativos de desempenho de índice exigem uma população vetorial realmente grande. Use pelo menos 1.000 vetores antes de tirar conclusões sobre desempenho de índice ou latência; os seis registros sintéticos iniciais validam o comportamento de consulta, não a escala ou latência do índice vetorial.
 
-**Write content-free audit evidence**
+**Gravar evidência de auditoria sem conteúdo**
 
-5. In `src/memory_store.py`, find the exact marker `# LAB PLACEHOLDER 3: Replace this line with the Task 3 sample.`
+5. Em `src/memory_store.py`, encontre o marcador exato `# LAB PLACEHOLDER 3: Replace this line with the Task 3 sample.`.
 
-6. Replace only the `raise NotImplementedError` line beneath it with:
+6. Substitua somente a linha `raise NotImplementedError` abaixo dele por:
 
 ```python
     self._authorize(patient_id)
@@ -236,13 +237,13 @@ The lab uses a `quantizedFlat` vector index, but meaningful index-performance te
     )
 ```
 
-The audit event identifies the operation and affected records but deliberately excludes memory content and embeddings.
+O evento de auditoria identifica a operação e os registros afetados, mas deliberadamente exclui conteúdo de memória e embeddings.
 
-**Prove read-your-writes consistency**
+**Provar consistência de leitura-após-gravação**
 
-7. In `src/consistency.py`, find the exact marker `# LAB PLACEHOLDER 4: Replace this line with the Task 4 sample.`
+7. Em `src/consistency.py`, encontre o marcador exato `# LAB PLACEHOLDER 4: Replace this line with the Task 4 sample.`.
 
-8. Replace only the `raise NotImplementedError` line beneath it with:
+8. Substitua somente a linha `raise NotImplementedError` abaixo dele por:
 
 ```python
   diagnostics = await store.upsert_memory(memory)
@@ -263,13 +264,13 @@ The audit event identifies the operation and affected records but deliberately e
   }
 ```
 
-The immediate point read uses both the same partition key and the write token. An eventual-consistency client cannot provide this explicit read-your-writes boundary.
+A leitura imediata por ponto usa tanto a mesma chave de partição quanto o token de escrita. Um cliente com consistência eventual não pode fornecer essa fronteira explícita de leitura-após-gravação.
 
-**Build bounded memory context**
+**Construir contexto de memória delimitado**
 
-9. In `src/context_budget.py`, find the exact marker `# LAB PLACEHOLDER 5: Replace this line with the Task 5 sample.`
+9. Em `src/context_budget.py`, encontre o marcador exato `# LAB PLACEHOLDER 5: Replace this line with the Task 5 sample.`.
 
-10. Replace only the `raise NotImplementedError` line beneath it with:
+10. Substitua somente a linha `raise NotImplementedError` abaixo dele por:
 
 ```python
   if token_budget < 1:
@@ -302,13 +303,13 @@ The immediate point read uses both the same partition key and the write token. A
   }
 ```
 
-Recent records receive a 30% reservation before the remaining candidates are ranked by importance and vector distance. Explicit delimiters separate stored memory from instructions.
+Registros recentes recebem uma reserva de 30% antes que os candidatos restantes sejam ranqueados por importância e distância vetorial. Delimitadores explícitos separam memória armazenada das instruções.
 
-**Apply retention and audit deletion**
+**Aplicar retenção e exclusão auditada**
 
-11. In `src/retention.py`, find the exact marker `# LAB PLACEHOLDER 6: Replace this line with the Task 6 sample.`
+11. Em `src/retention.py`, encontre o marcador exato `# LAB PLACEHOLDER 6: Replace this line with the Task 6 sample.`.
 
-12. Replace only the `raise NotImplementedError` line beneath it with:
+12. Substitua somente a linha `raise NotImplementedError` abaixo dele por:
 
 ```python
   store._authorize(patient_id)
@@ -341,193 +342,194 @@ Recent records receive a 30% reservation before the remaining candidates are ran
   }
 ```
 
-Dry run and apply use the same deterministic eligibility rule. The stored timestamp plus the Cosmos DB TTL must be in the past before a record is eligible. Every delete remains partition-scoped, and critical, unexpired, or indefinite-TTL records are preserved.
+Execução simulada (dry run) e apply usam a mesma regra determinística de elegibilidade. O carimbo de data/hora armazenado mais o TTL do Cosmos DB devem estar no passado antes de um registro ser elegível. Toda exclusão permanece no escopo da partição, e registros críticos, não expirados ou com TTL indefinido são preservados.
 
-**Review guarded consolidation**
+**Rever consolidação protegida**
 
-No code replacement is required.
+Nenhuma substituição de código é necessária.
 
-13. Review episodic records `mem-100-3`, `mem-100-4`, and `mem-100-5`.
-14. Run consolidation first with `--dry-run`.
-15. Verify that the three sources support one repeated reminder preference.
-16. Then apply it.
+13. Revise os registros episódicos `mem-100-3`, `mem-100-4` e `mem-100-5`.
+14. Execute a consolidação primeiro com `--dry-run`.
+15. Verifique que as três fontes suportam uma preferência de lembrete repetida.
+16. Em seguida, aplique-a.
 
-The completed method point-reads every source from the patient partition, derives TTL from the sources, then sends the semantic-memory create and every ETag-conditional source patch in one Cosmos DB transactional batch. Because all records use the same `patientId` partition key, the batch either commits all lineage changes or none. The deterministic semantic ID and audit event ID make retries idempotent; the audit remains in its separate container and is safely retried after the memory batch commits.
+O método concluído realiza leitura pontual de cada fonte da partição do paciente, deriva o TTL a partir das fontes e então envia a criação de memória semântica e cada patch condicional por ETag de fonte em um único lote transacional do Cosmos DB. Como todos os registros usam a mesma chave de partição `patientId`, o lote ou confirma todas as alterações de linhagem ou nenhuma. O ID semântico determinístico e o ID do evento de auditoria tornam as tentativas idempotentes; a auditoria permanece em seu contêiner separado e pode ser reenviada seguramente após o lote de memória do commit.
 
-**Check the completed code**
+**Verificar o código concluído**
 
-17. Run the following command:
+17. Execute o seguinte comando:
 
 ```powershell
 python scripts/preflight.py
 ```
 
-Preflight must end with `Preflight passed`.
+O preflight deve terminar com `Preflight passed`.
 
-18. Run it only after completing all six coding placeholders so it validates the learner implementation rather than the untouched starter.
+18. Execute-o somente após completar todos os seis placeholders de código para que valide a implementação do aprendiz em vez do starter não modificado.
 
-## Task 5: Run the solution
+## Tarefa 5: Executar a solução
 
-**Run the memory operations**
+**Executar as operações de memória**
 
-1. Load the synthetic memories and capture write diagnostics:
+1. Carregue as memórias sintéticas e capture diagnósticos de escrita:
 
 ```powershell
 python -m src.main ingest --file assets/memories.json
 ```
 
-2. Recall memory for one patient and build context:
+2. Relembre a memória para um paciente e construa o contexto:
 
 ```powershell
 python -m src.main recall --patient-id synthetic-patient-100 --query "medication tolerance and appointment preferences" --top 5 --budget 500
 ```
 
-3. Validate read-your-writes consistency:
+3. Valide a consistência de leitura-após-gravação:
 
 ```powershell
 python -m src.main consistency --patient-id synthetic-patient-100
 ```
 
-4. Run a dry-run prune before allowing deletion:
+4. Execute uma poda em execução simulada (dry-run) antes de permitir a exclusão:
 
 ```powershell
 python -m src.main prune --patient-id synthetic-patient-100 --dry-run
 ```
 
-5. Consolidate repeated episodic evidence into a reviewed semantic pattern.
-6. Never infer a clinical pattern from these reminder examples.
+5. Consolide evidências episódicas repetidas em um padrão semântico revisado.
+6. Nunca deduza um padrão clínico a partir desses exemplos de lembrete.
 
 ```powershell
 python -m src.main consolidate --patient-id synthetic-patient-100 --source-id mem-100-3 --source-id mem-100-4 --source-id mem-100-5 --summary "Repeatedly requests written reminders before synthetic follow-ups." --reviewer-id reviewer-07 --dry-run
 python -m src.main consolidate --patient-id synthetic-patient-100 --source-id mem-100-3 --source-id mem-100-4 --source-id mem-100-5 --summary "Repeatedly requests written reminders before synthetic follow-ups." --reviewer-id reviewer-07
 ```
 
-**Understand the output**
+**Entender a saída**
 
-Ingestion reports each memory ID, patient partition, RU charge, and whether Cosmos returned a session token; it does not echo content. Recall returns a `retrieved_memories` array containing the authorized patient's records in ascending `vector_distance` order and their query RU charge. Its `bounded_context` object lists selected IDs, estimated token count, and a delimited `<patient_memory>` block. Prune output separates eligible IDs from `deleted_count`, while consolidation distinguishes `dry_run` from `consolidated` and records retained source lineage.
+A ingestão reporta cada ID de memória, partição do paciente, consumo de RU e se o Cosmos retornou um token de sessão; ela não ecoa o conteúdo. O recall retorna um array `retrieved_memories` contendo os registros autorizados do paciente em ordem ascendente de `vector_distance` e seu consumo de RU de consulta. Seu objeto `bounded_context` lista IDs selecionados, estimativa de contagem de tokens e um bloco delimitado `<patient_memory>`. A saída da poda separa IDs elegíveis de `deleted_count`, enquanto a consolidação distingue `dry_run` de `consolidated` e registra a linhagem de fontes retidas.
 
-**Run the Memory Coordinator locally**
+**Executar o Coordenador de Memória localmente**
 
-7. Open a second terminal in the lab folder.
-8. Activate the same virtual environment and start the Responses server.
-9. Keep this terminal running:
+7. Abra um segundo terminal na pasta do laboratório.
+8. Ative o mesmo ambiente virtual e inicie o servidor Responses.
+9. Mantenha este terminal em execução:
 
 ```powershell
 . ./.venv/Scripts/Activate.ps1
 azd ai agent run memory-coordinator --no-client
 ```
 
-10. In the first terminal, invoke the local agent with a patient-specific question:
+10. No primeiro terminal, invoque o agente local com uma pergunta específica do paciente:
 
 ```powershell
 azd ai agent invoke memory-coordinator --local --new-session "What reminder and appointment preferences should the care team consider? Cite the supporting memory IDs."
 ```
 
-`AGENT_PATIENT_ID` binds the recall tool to `synthetic-patient-100` for authorization and partition scoping; the model cannot choose a patient ID.
+`AGENT_PATIENT_ID` vincula a ferramenta de recall a `synthetic-patient-100` para autorização e escopo de partição; o modelo não pode escolher um ID de paciente.
 
-11. Confirm that the response cites retrieved memory IDs and does not invent details outside the bounded context.
-12. Press **Ctrl+C** in the server terminal when local validation is complete.
+11. Confirme que a resposta cita IDs de memória recuperados e não inventa detalhes fora do contexto limitado.
+12. Pressione **Ctrl+C** no terminal do servidor quando a validação local estiver completa.
 
-**Deploy and invoke the Hosted Agent**
+**Implantar e invocar o Hosted Agent**
 
-13. Deploy the same tested code to Foundry, then invoke the remote agent:
+13. Faça o deploy do mesmo código testado no Foundry e então invoque o agente remoto:
 
 ```powershell
 azd deploy memory-coordinator
 azd ai agent invoke memory-coordinator --new-session "What reminder and appointment preferences should the care team consider? Cite the supporting memory IDs."
 ```
 
-Foundry hosts the Responses endpoint and model call. The tool queries Cosmos DB using the project managed identity; patient memory remains in Cosmos DB.
+O Foundry hospeda o endpoint Responses e a chamada ao modelo. A ferramenta consulta o Cosmos DB usando a identidade gerenciada do projeto; a memória do paciente permanece no Cosmos DB.
 
-## Task 6: Validate the implementation
+## Tarefa 6: Validar a implementação
 
-Inspect the live output from **Run the solution**, then complete the portal and additional live checks below. Local preflight alone does not validate these service behaviors.
+Inspecione a saída ao vivo de **Executar a solução**, então complete o portal e as verificações adicionais abaixo. O preflight local sozinho não valida esses comportamentos de serviço.
 
-**Review evidence from the commands already run**
+**Revisar evidências dos comandos já executados**
 
-1. Use the terminal output from **Run the solution** to confirm:
+1. Use a saída do terminal de **Executar a solução** para confirmar:
 
-- `ingest` reports each written ID, `patientId`, RU charge, and a session token without echoing memory content.
-- `recall` returns only records for `synthetic-patient-100`. Confirm that `vector_distance` values in `retrieved_memories` are ascending, each record reports the same query `request_charge`, and `bounded_context.token_count` is no greater than 500.
-- `consistency` reports matching `write_id` and `read_id`, `session_token_transferred: true`, and the write RU charge.
-- `prune --dry-run` reports `status: dry_run`, `deleted_count: 0`, and the eligible IDs while preserving the critical record.
-- The consolidation dry run reports three source records and performs no writes. The applied run reports `status: consolidated`, one semantic memory ID, the three retained source IDs, and transactional-batch diagnostics.
-- Both local and deployed agent invocations call `recall_patient_memory`, cite supporting memory IDs, and limit their claims to the bounded context.
+- `ingest` reporta cada ID escrito, `patientId`, consumo de RU e um token de sessão sem ecoar o conteúdo da memória.
+- `recall` retorna somente registros para `synthetic-patient-100`. Confirme que os valores `vector_distance` em `retrieved_memories` estão em ordem ascendente, cada registro reporta o mesmo consumo de consulta `request_charge`, e `bounded_context.token_count` não é maior que 500.
+- `consistency` reporta `write_id` e `read_id` correspondentes, `session_token_transferred: true` e o consumo de RU de escrita.
+- `prune --dry-run` reporta `status: dry_run`, `deleted_count: 0` e os IDs elegíveis enquanto preserva o registro crítico.
+- A execução simulada (dry-run) da consolidação reporta três registros fonte e não realiza gravações. A execução aplicada reporta `status: consolidated`, um ID de memória semântica, os três IDs de fonte retidos e diagnósticos do lote transacional.
+- Tanto as invocações local quanto a implantada do agente chamam `recall_patient_memory`, citam IDs de memória de suporte e limitam suas afirmações ao contexto delimitado.
 
-**Inspect the persisted records in the Azure portal**
+**Inspecionar os registros persistidos no portal do Azure**
 
-2. In the [Microsoft Foundry portal](https://ai.azure.com), open the project provisioned for this lab. Confirm that the `gpt-5.4-mini` and `text-embedding-3-small` deployments exist and that `northwind-health-memory-coordinator` has a deployed version.
-3. In the [Azure portal](https://portal.azure.com), open the Cosmos DB account provisioned for this lab.
-4. Select **Data Explorer** > **clinical-memory-db** > **patient-memories** > **Items**.
-5. Open an ingested memory and confirm it contains `patientId`, `schemaVersion`, `memoryType`, `importance`, `timestamp`, `ttl`, and an `embedding` array. The vector embedding policy in the container requires 1,536 dimensions.
-6. Open `mem-100-3`, `mem-100-4`, and `mem-100-5`. After applied consolidation, confirm that all three source documents remain and contain the same `consolidatedInto` semantic memory ID.
-7. Open the corresponding `semantic_pattern` document and confirm that `sourceMemoryIds` contains the three source IDs and `reviewerId` is `reviewer-07`.
+2. No [portal Microsoft Foundry](https://ai.azure.com), abra o projeto provisionado para este laboratório. Confirme que as implantações `gpt-5.4-mini` e `text-embedding-3-small` existem e que `northwind-health-memory-coordinator` tem uma versão implantada.
+3. No [portal do Azure](https://portal.azure.com), abra a conta Cosmos DB provisionada para este laboratório.
+4. Selecione **Explorador de dados (Data Explorer)** > **clinical-memory-db** > **patient-memories** > **Itens (Items)**.
+5. Abra uma memória ingerida e confirme que ela contém `patientId`, `schemaVersion`, `memoryType`, `importance`, `timestamp`, `ttl` e um array `embedding`. A política de embedding vetorial no contêiner requer 1.536 dimensões.
+6. Abra `mem-100-3`, `mem-100-4` e `mem-100-5`. Após a consolidação aplicada, confirme que os três documentos fonte permanecem e contêm o mesmo ID de memória semântica `consolidatedInto`.
+7. Abra o documento correspondente `semantic_pattern` e confirme que `sourceMemoryIds` contém os três IDs fonte e `reviewerId` é `reviewer-07`.
 
-These portal checks validate persistence and lineage. They do not replace the terminal checks for vector ordering, RU charge, context budgeting, or session-token transfer.
+Essas verificações no portal validam persistência e linhagem. Elas não substituem as verificações do terminal para ordenação vetorial, consumo de RU, orçamento de contexto ou transferência de token de sessão.
 
-**Complete the remaining live checks**
+**Completar as verificações ao vivo restantes**
 
-8. First, rerun the applied consolidation command **before pruning**:
+8. Primeiro, execute novamente o comando de consolidação aplicada **antes da poda**:
 
 ```powershell
 python -m src.main consolidate --patient-id synthetic-patient-100 --source-id mem-100-3 --source-id mem-100-4 --source-id mem-100-5 --summary "Repeatedly requests written reminders before synthetic follow-ups." --reviewer-id reviewer-07
 ```
 
-9. Expect `status: already_consolidated` with the same semantic memory and source IDs, confirming that retry reconciliation does not create a duplicate semantic memory and safely restores the deterministic audit event if needed.
+9. Espere `status: already_consolidated` com os mesmos IDs semânticos e de fonte, confirmando que a reconciliação por retry não cria uma memória semântica duplicada e restaura seguramente o evento de auditoria determinístico se necessário.
 
-10. Next, apply the retention policy. This command deletes the eligible noncritical, finite-TTL records, so run it only after completing the consolidation and lineage checks above:
+10. Em seguida, aplique a política de retenção. Este comando exclui os registros não críticos, de TTL finito, então execute-o somente após completar as verificações de consolidação e linhagem acima:
 
 ```powershell
 python -m src.main prune --patient-id synthetic-patient-100
 ```
 
-11. Confirm that the output reports `status: applied` and a nonzero `deleted_count`.
-12. Then, in Data Explorer, select **clinical-memory-db** > **memory-audit** > **Items**.
-13. Confirm that the `retention_prune` audit event contains the patient ID, operation, affected memory IDs, reason, and timestamp, but no memory content or embedding.
+11. Confirme que a saída reporta `status: applied` e um `deleted_count` diferente de zero.
+12. Então, no Explorador de dados (Data Explorer), selecione **clinical-memory-db** > **memory-audit** > **Itens (Items)**.
+13. Confirme que o evento de auditoria `retention_prune` contém o ID do paciente, operação, IDs de memória afetados, motivo e timestamp, mas nenhum conteúdo de memória ou embedding.
 
-The cross-patient authorization boundary is a code-level safeguard rather than a separate CLI scenario.
+A fronteira de autorização entre pacientes é uma salvaguarda no nível do código em vez de um cenário CLI separado.
 
-14. Review `_authorize` in `src/memory_store.py` and confirm that it raises `PermissionError` before embedding or Cosmos DB I/O when the requested patient differs from the patient bound to the store.
+14. Revise `_authorize` em `src/memory_store.py` e confirme que ele lança `PermissionError` antes do embedding ou I/O do Cosmos DB quando o paciente solicitado difere do paciente vinculado ao store.
 
-## Optional challenge: Gate memory consolidation
+## Desafio opcional: Controlar a consolidação de memória
 
-Add a synthetic confidence field and consolidate only evidence at or above a documented threshold.
+Adicione um campo de confiança sintético e consolide apenas evidências com confiança igual ou superior a um limite documentado.
 
-**Expected output:** Low-confidence evidence remains in source history but does not appear in the consolidated reminder; accepted evidence records the threshold and reviewer.
+**Saída esperada:** Evidência de baixa confiança permanece no histórico de fonte, mas não aparece no lembrete consolidado; evidências aceitas registram o limite e o revisor.
 
-**Failure investigation:** Repeat the same consolidation request and determine whether idempotency or deduplication prevents a duplicate semantic memory.
-## Task 7: Review the design
+**Investigação de falha:** Repita a mesma solicitação de consolidação e determine se idempotência ou deduplicação evita uma memória semântica duplicada.
 
-1. Answer these questions:
+## Tarefa 7: Revisar o design
 
-- Which memory fields should be immutable after creation?
-- How should a contradiction supersede an older memory without destroying audit history?
-- When is explicit session-token transfer required instead of client-local token management?
-- What would a right-to-deletion verification query need to prove?
+1. Responda a estas perguntas:
 
-## Task 8: Clean up
+- Quais campos de memória devem ser imutáveis após a criação?
+- Como uma contradição deve suplantar uma memória mais antiga sem destruir o histórico de auditoria?
+- Quando é necessário transferir explicitamente o token de sessão em vez do gerenciamento de token local ao cliente?
+- O que uma consulta de verificação de direito à exclusão precisaria provar?
 
-**Remove Azure resources**
+## Tarefa 8: Limpar
 
-1. Run the following command:
+**Remover recursos do Azure**
+
+1. Execute o seguinte comando:
 
 ```powershell
 azd down --purge --force
 ```
 
-2. Confirm that the Cosmos DB account, Foundry account and project, model deployments, and Hosted Agent are deleted.
-3. Remove `.env`.
+2. Confirme que a conta Cosmos DB, a conta e o projeto Foundry, as implantações de modelo e o Hosted Agent foram excluídos.
+3. Remova `.env`.
 
-**Deactivate the virtual environment**
+**Desativar o ambiente virtual**
 
-4. Run this command in every terminal where `(.venv)` appears in the prompt:
+4. Execute este comando em todo terminal onde `(.venv)` aparece no prompt:
 
 ```powershell
 deactivate
 ```
 
-5. Confirm that `(.venv)` no longer appears before changing to another lab directory.
+5. Confirme que `(.venv)` não aparece mais antes de mudar para outro diretório de laboratório.
 
-## Summary
+## Resumo
 
-You implemented live vector memory persistence, patient isolation, read-your-writes consistency, context budgeting, retention, and audit patterns with Azure Cosmos DB for NoSQL.
+Você implementou persistência de memória vetorial ao vivo, isolamento por paciente, consistência de leitura-após-gravação, orçamento de contexto, retenção e padrões de auditoria com Azure Cosmos DB para NoSQL.

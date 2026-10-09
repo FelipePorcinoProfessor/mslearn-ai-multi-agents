@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% if page.title %}{{ page.title }} | {% endif %}{{ site.title }}</title>
+  <meta name="description" content="{{ page.description | default: site.title | escape }}">
+  <style>
+    :root { --ink:#172033; --muted:#5d6878; --line:#e3e8f0; --brand:#174ea6; --brand-soft:#eef4ff; --surface:#fff; --page:#f7f9fc; --header:#102a56; --header-border:#6ea8fe; --code:#172033; --shadow:rgba(24,45,80,.07); color-scheme:light; }
+    :root[data-theme="dark"] { --ink:#e7edf7; --muted:#aebbd0; --line:#34445c; --brand:#8db7ff; --brand-soft:#1d3558; --surface:#182334; --page:#0e1624; --header:#0a1220; --header-border:#477fc9; --code:#0a1220; --shadow:rgba(0,0,0,.28); color-scheme:dark; }
+    * { box-sizing:border-box; } html { scroll-behavior:smooth; }
+    body { margin:0; color:var(--ink); background:var(--page); font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; line-height:1.65; transition:background .2s ease,color .2s ease; }
+    a { color:var(--brand); } .site-header { background:var(--header); color:#fff; border-bottom:4px solid var(--header-border); }
+    .site-header-inner { max-width:1200px; margin:0 auto; padding:1rem 1.25rem; display:flex; align-items:center; justify-content:space-between; gap:1rem; }
+    .site-title { color:#fff; font-weight:750; text-decoration:none; letter-spacing:.01em; } .site-nav { display:flex; flex-wrap:wrap; gap:.35rem; align-items:center; }
+    .site-nav a { color:#dce9ff; padding:.35rem .65rem; border-radius:6px; text-decoration:none; font-size:.92rem; } .site-nav a:hover,.site-nav a:focus { background:rgba(255,255,255,.14); color:#fff; }
+    .theme-toggle { display:inline-flex; align-items:center; gap:.4rem; border:1px solid rgba(255,255,255,.35); border-radius:999px; padding:.35rem .65rem; color:#fff; background:rgba(255,255,255,.08); cursor:pointer; font:inherit; font-size:.84rem; }
+    .theme-toggle:hover,.theme-toggle:focus-visible { background:rgba(255,255,255,.2); outline:2px solid #fff; outline-offset:2px; }
+    .page-shell { max-width:1200px; margin:0 auto; padding:2.25rem 1.25rem 4rem; } .content { max-width:980px; margin:0 auto; padding:2rem 2.25rem; background:var(--surface); border:1px solid var(--line); border-radius:14px; box-shadow:0 8px 28px var(--shadow); }
+    .content h1 { margin-top:0; color:var(--ink); line-height:1.2; font-size:clamp(1.8rem,3vw,2.6rem); } .content h2 { margin-top:2.3rem; padding-bottom:.35rem; border-bottom:1px solid var(--line); color:var(--brand); line-height:1.3; } .content h3 { margin-top:1.7rem; color:var(--brand); }
+    .content img { max-width:100%; height:auto; border-radius:8px; } .content table { width:100%; border-collapse:collapse; margin:1rem 0; font-size:.94rem; } .content th,.content td { border:1px solid var(--line); padding:.6rem .75rem; text-align:left; vertical-align:top; } .content th { background:var(--brand-soft); color:var(--brand); }
+    .content blockquote { margin:1.2rem 0; padding:.75rem 1rem; border-left:4px solid var(--header-border); background:var(--brand-soft); color:var(--ink); } .content pre { overflow:auto; padding:1rem; border-radius:8px; background:var(--code); color:#f8fafc; font-size:.88rem; line-height:1.5; } .content code { padding:.12em .3em; border-radius:4px; background:var(--brand-soft); font-size:.9em; } .content pre code { padding:0; background:transparent; color:inherit; }
+    .content li { margin:.3rem 0; } .content hr { border:0; border-top:1px solid var(--line); margin:2rem 0; } .site-footer { max-width:1200px; margin:0 auto; padding:0 1.25rem 2rem; color:var(--muted); font-size:.88rem; }
+    @media (max-width:700px) { .site-header-inner { align-items:flex-start; flex-direction:column; } .page-shell { padding:1rem .75rem 2rem; } .content { padding:1.25rem; border-radius:10px; } .content table { display:block; overflow-x:auto; white-space:nowrap; } }
+  </style>
+  <script>(function(){var s=localStorage.getItem('theme');if(s==='dark'||(!s&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.dataset.theme='dark';}());</script>
+</head>
+<body>
+  <header class="site-header"><div class="site-header-inner"><a class="site-title" href="{{ '/' | relative_url }}">{{ site.title }}</a><nav class="site-nav" aria-label="Navegação principal"><a href="{{ '/' | relative_url }}">Início</a><a href="{{ '/' | relative_url }}#labs">Labs</a><a href="https://github.com/FelipePorcinoProfessor/mslearn-ai-multi-agents">GitHub</a><button class="theme-toggle" id="theme-toggle" type="button" aria-pressed="false" aria-label="Alternar tema">☾ <span>Tema escuro</span></button></nav></div></header>
+  <main class="page-shell"><article class="content">{{ content }}</article></main>
+  <footer class="site-footer">Labs de multi-agentes · {{ site.author }}</footer>
+  <script>(function(){var r=document.documentElement,b=document.getElementById('theme-toggle');function a(n){r.dataset.theme=n;var d=n==='dark';b.setAttribute('aria-pressed',String(d));b.innerHTML=d?'☀ <span>Tema claro</span>':'☾ <span>Tema escuro</span>';}a(r.dataset.theme==='dark'?'dark':'light');b.addEventListener('click',function(){var n=r.dataset.theme==='dark'?'light':'dark';localStorage.setItem('theme',n);a(n);});}());</script>
+</body>
+</html>

@@ -1,49 +1,50 @@
 ---
 lab:
-  title: 'Build a multi-agent evaluation quality gate'
-  description: 'Evaluate Adventure Works multi-agent journeys with Microsoft Foundry evaluators, synthetic data, calibration evidence, and regression thresholds.'
+  title: 'Construa um portão de qualidade de avaliação multiagente'
+  description: 'Avalie as jornadas multiagente da Adventure Works com evaluators do Microsoft Foundry, dados sintéticos, evidências de calibração e limites de regressão.'
   duration: 45
   level: 400
   islab: true
   status: 'released'
+layout: default
 ---
 
-# Build a multi-agent evaluation quality gate
+# Construa um portão de qualidade de avaliação multiagente
 
-## Customer scenario
+## Cenário do cliente
 
-Adventure Works must detect regressions in its Customer Intelligence Platform before a new agent configuration reaches customers. Individual agents can return plausible answers while the complete journey fails through poor intent resolution, incomplete handoffs, or contradictory responses.
+A Adventure Works precisa detectar regressões em sua Customer Intelligence Platform antes que uma nova configuração de agente alcance os clientes. Agentes individuais podem retornar respostas plausíveis enquanto a jornada completa falha por causa de resolução de intenção deficiente, transferências incompletas ou respostas contraditórias.
 
-## Lab scenario
+## Cenário do laboratório
 
-You are the platform engineer responsible for a repeatable Microsoft Foundry evaluation run. You will complete an evaluator factory, evaluate a privacy-safe JSONL dataset, calibrate judge output against human labels, and apply deterministic regression thresholds to the measured results.
+Você é o engenheiro de plataforma responsável por uma execução de avaliação Microsoft Foundry repetível. Você completará uma fábrica de avaliadores, avaliará um dataset JSONL que preserva privacidade, calibrará a saída do juiz contra rótulos humanos e aplicará limites determinísticos de regressão aos resultados medidos.
 
-By the end of this exercise, you will be able to:
+Ao final deste exercício, você será capaz de:
 
-- Define component, journey, and system-level success metrics.
-- Run current Responses-based model judges through the Azure AI Evaluation SDK batch framework.
-- Use synthetic canary, regression, and historical-failure cases.
-- Convert evaluation output into an auditable deployment recommendation.
+- Definir métricas de sucesso em nível de componente, jornada e sistema.
+- Executar avaliadores baseados em Responses através do framework batch do Azure AI Evaluation SDK.
+- Usar dados sintéticos de canário, regressão e falhas históricas.
+- Converter a saída de avaliação em uma recomendação de implantação auditável.
 
-> **Important**: The live run uses a deployed model and incurs token charges. Use only the supplied synthetic data. Confirm quota and run cleanup when finished.
+> **Importante**: A execução ao vivo usa um modelo implantado e gera cobranças por tokens. Use apenas os dados sintéticos fornecidos. Confirme cota e limpe a execução ao terminar.
 
-## Task 1: Prepare the lab
+## Tarefa 1: Preparar o laboratório
 
-You need [Python 3.10 or later](https://www.python.org/downloads/), [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd), an Azure subscription, and permission to create a Microsoft Foundry account, project, and model deployment. Use a region with quota for the instructor-approved chat model. Authenticate locally with `DefaultAzureCredential`; do not place keys in files.
+Você precisa de [Python 3.10 ou posterior](https://www.python.org/downloads/), [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd), uma assinatura do Azure e permissão para criar uma conta Microsoft Foundry, projeto e implantação de modelo. Use uma região com cota para o modelo de chat aprovado pelo instrutor. Autentique-se localmente com `DefaultAzureCredential`; não coloque chaves em arquivos.
 
-**Clone and open the repository**
+**Clone e abra o repositório**
 
-1. If you haven't already done so, clone the [lab source repository](https://github.com/MicrosoftLearning/mslearn-ai-multi-agents/tree/main), or fork the repository and clone your fork:
+1. Se ainda não fez, clone o [repositório de origem do laboratório](https://github.com/MicrosoftLearning/mslearn-ai-multi-agents/tree/main), ou faça um fork do repositório e clone seu fork:
 
 ```console
 git clone https://github.com/MicrosoftLearning/mslearn-ai-multi-agents.git
 ```
 
-2. Open the cloned repository in Visual Studio Code.
+2. Abra o repositório clonado no Visual Studio Code.
 
-**Verify tools and authentication**
+**Valide ferramentas e autenticação**
 
-3. Validate the required tools, credentials, and active subscription from the VS Code terminal:
+3. Valide as ferramentas necessárias, credenciais e assinatura ativa a partir do terminal do VS Code:
 
 ```powershell
 cd Allfiles\14-adventure-works-evaluation-frameworks
@@ -53,42 +54,42 @@ python --version
 az account show --output table
 ```
 
-**Architecture checkpoint**
+**Ponto de verificação de arquitetura**
 
-Review `assets/evaluation-data.jsonl`, `assets/evaluation-config.json`, `src/evaluators.py`, `src/main.py`, and `infra/main.bicep`. Before continuing, confirm that one dataset row produces deterministic and model-based metrics, row-level evidence, judge calibration, and a deterministic release decision.
+Revise `assets/evaluation-data.jsonl`, `assets/evaluation-config.json`, `src/evaluators.py`, `src/main.py` e `infra/main.bicep`. Antes de continuar, confirme que uma linha do dataset produz métricas determinísticas e baseadas no modelo, evidência no nível da linha, calibração do juiz e uma decisão de liberação determinística.
 
-Complete the evaluator set, calibration, batch run, and deterministic gate. The model judge supplies quality signals; application code owns the release decision.
+Complete o conjunto de avaliadores, calibração, execução em lote e o portão determinístico. O juiz do modelo fornece sinais de qualidade; o código da aplicação é responsável pela decisão de liberação.
 
-## Task 2: Build the virtual environment
+## Tarefa 2: Crie o ambiente virtual
 
-1. On Windows, create and activate the virtual environment:
+1. No Windows, crie e ative o ambiente virtual:
 
 ```powershell
 ./scripts/setup.ps1
 . ./.venv/Scripts/Activate.ps1
 ```
 
-> On macOS/Linux, run `bash scripts/setup.sh` and `source .venv/bin/activate` instead.
+> No macOS/Linux, execute `bash scripts/setup.sh` e `source .venv/bin/activate` em vez disso.
 
-## Task 3: Deploy Azure resources
+## Tarefa 3: Provisionar recursos do Azure
 
-1. Use an isolated environment and the inline user-agent required for Foundry workflows.
+1. Use um ambiente isolado e o user-agent inline requerido para workflows do Foundry.
 
-2. Review Foundry model-judge cost, quota, and role access before provisioning.
+2. Revise custo, cota e acesso por função do modelo-juiz do Foundry antes de provisionar.
 
-`azd` provisions the Foundry account, project, and model deployment; evaluation runs separately and incurs model charges.
+`azd` provisiona a conta Foundry, o projeto e a implantação de modelo; as execuções de avaliação são separadas e geram cobranças pelo modelo.
 
-**Set the deployment values**
+**Defina os valores de implantação**
 
-3. Set `$azureRegion` to an approved region that supports your selected model.
-4. Replace the example value `eastus2` if needed.
-> **Resource group:** If your lab environment provides a precreated resource group, set `$resourceGroupName` to its name. Otherwise, leave `$resourceGroupName` empty so the script creates a unique resource group in your subscription.
+3. Defina `$azureRegion` para uma região aprovada que suporte o modelo selecionado.
+4. Substitua o valor de exemplo `eastus2` se necessário.
+> **Grupo de recursos:** Se seu ambiente de laboratório fornecer um grupo de recursos pré-criado, defina `$resourceGroupName` para o nome dele. Caso contrário, deixe `$resourceGroupName` vazio para que o script crie um grupo de recursos único em sua assinatura.
 
-> **Note:** `AZURE_DEV_USER_AGENT` tags provisioning for attribution and is not exported to `.env`. Remove it afterward to avoid tagging unrelated commands.
+> **Nota:** `AZURE_DEV_USER_AGENT` marca o provisionamento para atribuição e não é exportado para `.env`. Remova-o posteriormente para evitar marcar comandos não relacionados.
 
-**Validate and provision the infrastructure**
+**Valide e provisione a infraestrutura**
 
-5. Run the following commands:
+5. Execute os seguintes comandos:
 
 ```powershell
 $azureRegion = 'eastus2'
@@ -112,23 +113,23 @@ azd env get-values | Out-File .env -Encoding utf8
 Remove-Item Env:AZURE_DEV_USER_AGENT
 ```
 
-> **Note:** If provisioning fails, inspect the first deployment error. Check model and region availability, quota, principal ID, and role-assignment permissions. Correct the cause and rerun `azd provision`.
+> **Nota:** Se o provisionamento falhar, inspecione o primeiro erro de implantação. Verifique disponibilidade do modelo e da região, cota, principal ID e permissões de atribuição de função. Corrija a causa e execute novamente `azd provision`.
 
-**Verify the generated environment**
+**Verifique o ambiente gerado**
 
-6. After provisioning succeeds, validate that `.env` includes `FOUNDRY_PROJECT_ENDPOINT`, `FOUNDRY_MODEL_NAME`, and the project and principal values required by the evaluator.
-7. Do not add keys, tokens, or connection strings; the application uses your signed-in identity.
+6. Após o provisionamento ser bem-sucedido, valide que `.env` inclui `FOUNDRY_PROJECT_ENDPOINT`, `FOUNDRY_MODEL_NAME` e os valores do projeto e do principal exigidos pelo avaliador.
+7. Não adicione chaves, tokens ou connection strings; a aplicação usa sua identidade autenticada.
 
-## Task 4: Implement the solution
+## Tarefa 4: Implementar a solução
 
-Each placeholder marks incomplete code. Copy each supplied snippet into its placeholder location, remove the `LAB PLACEHOLDER` comment, replace only the indicated incomplete line or block, and preserve the surrounding indentation.
+Cada placeholder marca código incompleto. Copie cada snippet fornecido para seu local placeholder, remova o comentário `LAB PLACEHOLDER`, substitua somente a linha ou bloco incompleto indicado e preserve a indentação ao redor.
 
-> **Tip:** After you copy and paste each Python snippet, validate its indentation against the surrounding function or class before running the code.
+> **Dica:** Após colar cada snippet Python, valide sua indentação em relação à função ou classe circundante antes de executar o código.
 
-**Create the evaluator set**
+**Crie o conjunto de avaliadores**
 
-1. In `src/evaluators.py`, find `# LAB PLACEHOLDER 1`.
-2. Replace the incomplete `create_evaluators()` function associated with it with:
+1. Em `src/evaluators.py`, encontre `# LAB PLACEHOLDER 1`.
+2. Substitua a função incompleta `create_evaluators()` associada por:
 
 ```python
 def create_evaluators(
@@ -148,14 +149,14 @@ def create_evaluators(
   }
 ```
 
-This combines component metrics with the journey-level model judge while reusing the parameterized deployment and passwordless credential.
+Isto combina métricas de componente com o juiz de nível de jornada enquanto reutiliza a implantação parametrizada e a credential sem senha.
 
-> **Preview note:** The Foundry agent evaluators and composite **Output Quality** and **Tool Use Quality** evaluators are preview features. APIs, score definitions, supported judge models, and package names can change. This lab keeps individual evaluators because their row-level signals support the calibration exercise. Check [Agent evaluators](https://learn.microsoft.com/azure/foundry-classic/concepts/evaluation-evaluators/agent-evaluators) before using them in a production release gate.
+> **Observação (prévia):** Os avaliadores de agentes do Foundry e os avaliadores compostos **Output Quality** e **Tool Use Quality** são recursos em prévia. APIs, definições de pontuação, modelos de juiz suportados e nomes de pacotes podem mudar. Este laboratório mantém avaliadores individuais porque seus sinais no nível da linha suportam o exercício de calibração. Verifique [Avaliadores de agentes](https://learn.microsoft.com/azure/foundry-classic/concepts/evaluation-evaluators/agent-evaluators) antes de usá-los em um portão de produção.
 
-**Calculate calibration agreement**
+**Calcule o acordo de calibração**
 
-3. In `src/main.py`, find `# LAB PLACEHOLDER 2`.
-4. Replace the incomplete `calibration_agreement()` function associated with it with:
+3. Em `src/main.py`, encontre `# LAB PLACEHOLDER 2`.
+4. Substitua a função incompleta `calibration_agreement()` associada por:
 
 ```python
 def calibration_agreement(rows: list[dict[str, Any]]) -> float:
@@ -173,12 +174,12 @@ def calibration_agreement(rows: list[dict[str, Any]]) -> float:
   return sum(labeled) / len(labeled) if labeled else 0.0
 ```
 
-Calibration keeps judge disagreement visible instead of treating a model score as ground truth.
+A calibração mantém a discordância do juiz visível em vez de tratar uma pontuação do modelo como verdade absoluta.
 
-**Apply deterministic regression gates**
+**Aplique portões determinísticos de regressão**
 
-5. Find `# LAB PLACEHOLDER 3`.
-6. Replace the incomplete `apply_regression_gate()` function associated with it with:
+5. Encontre `# LAB PLACEHOLDER 3`.
+6. Substitua a função incompleta `apply_regression_gate()` associada por:
 
 ```python
 def apply_regression_gate(
@@ -217,12 +218,12 @@ def apply_regression_gate(
   }
 ```
 
-The model produces semantic measurements; deterministic code owns the release decision and fails closed when a metric is missing.
+O modelo produz medições semânticas; o código determinístico é o responsável pela decisão de liberação e falha-se fechado quando uma métrica está ausente.
 
-**Run the batch evaluation**
+**Execute a avaliação em lote**
 
-7. Find `# LAB PLACEHOLDER 4`.
-8. Replace the `evaluation = None` assignment and its following `if` block with:
+7. Encontre `# LAB PLACEHOLDER 4`.
+8. Substitua a atribuição `evaluation = None` e o bloco `if` que a segue por:
 
 ```python
   evaluation = evaluate(
@@ -260,92 +261,93 @@ The model produces semantic measurements; deterministic code owns the release de
   )
 ```
 
-Each evaluator receives its documented dataset contract. Response completeness compares the candidate with `expected_behavior` as ground truth, while the journey judge also receives context. Row-level evidence remains separate from the summary.
+Cada avaliador recebe seu contrato de dataset documentado. A completude de resposta compara o candidato com `expected_behavior` como verdade de referência, enquanto o juiz de jornada também recebe contexto. A evidência no nível da linha permanece separada do resumo.
 
-**Guard report generation**
+**Proteja a geração de relatório**
 
-9. Find `# LAB PLACEHOLDER 5`.
-10. Insert this guard at the placeholder location:
+9. Encontre `# LAB PLACEHOLDER 5`.
+10. Insira esta guarda no local placeholder:
 
 ```python
   if not rows:
     raise RuntimeError("Evaluation returned no rows; no release decision can be made.")
 ```
 
-An empty evaluation must not produce a plausible-looking deployment recommendation.
+Uma avaliação vazia não deve produzir uma recomendação de implantação com aparência plausível.
 
-**Check the completed code**
+**Verifique o código completado**
 
-11. Check the completed code locally:
+11. Verifique o código completado localmente:
 
 ```console
 python -m py_compile src/evaluators.py src/main.py
 python scripts/preflight.py --require-complete
 ```
 
-12. Confirm that compilation returns no output.
-13. Confirm that preflight reports the Python version, dataset, configuration, and Evaluation SDK as `ready`; endpoint and deployment can remain `not ready` until provisioning is complete.
+12. Confirme que a compilação não retorna saída.
+13. Confirme que o preflight reporta a versão do Python, o dataset, a configuração e o Evaluation SDK como `ready`; endpoint e implantação podem permanecer `not ready` até o provisionamento ser concluído.
 
-## Task 5: Run the solution
+## Tarefa 5: Execute a solução
 
-1. Run the batch evaluation:
+1. Execute a avaliação em lote:
 
 ```console
 python -m src.main --data assets/evaluation-data.jsonl --output reports/evaluation-result.json
 ```
 
-2. Confirm that the command invokes the live evaluator model, preserves row-level evidence, and produces a release recommendation derived from measured metrics.
+2. Confirme que o comando invoca o modelo avaliador ao vivo, preserva evidência no nível da linha e produz uma recomendação de liberação derivada de métricas medidas.
 
-**Understand the output**
+**Entenda a saída**
 
-`reports/evaluation-result.rows.jsonl` contains one evidence record per synthetic case, including evaluator scores and reasons. `reports/evaluation-result.json` is the release summary: `metrics` contains aggregates, `gate.comparisons` shows measured values against absolute and delta thresholds, `gate.calibration_agreement` compares the journey judge with human labels, and `gate.passed` is true only when `failed_gates` is empty. `deployment` is the configured deployment name, not a hardcoded model.
+`reports/evaluation-result.rows.jsonl` contém um registro de evidência por caso sintético, incluindo pontuações de avaliadores e razões. `reports/evaluation-result.json` é o resumo da liberação: `metrics` contém agregados, `gate.comparisons` mostra valores medidos contra limites absolutos e delta, `gate.calibration_agreement` compara o juiz de jornada com rótulos humanos, e `gate.passed` é verdadeiro somente quando `failed_gates` está vazio. `deployment` é o nome de implantação configurado, não um modelo codificado estaticamente.
 
-## Task 6: Validate the implementation
+## Tarefa 6: Validar a implementação
 
-**Inspect the evaluation evidence**
+**Inspecione a evidência de avaliação**
 
-1. Confirm that `reports/evaluation-result.json` contains dataset metadata, evaluator names, aggregate scores, calibration agreement, threshold comparisons, failed gates, and the model deployment name.
-2. Inspect low-scoring rows and explain whether the failure is component-level, handoff-level, or system-level.
+1. Confirme que `reports/evaluation-result.json` contém metadados do dataset, nomes dos avaliadores, pontuações agregadas, acordo de calibração, comparações de limites, portões falhos e o nome da implantação do modelo.
+2. Inspecione linhas com pontuação baixa e explique se a falha é em nível de componente, nível de handoff ou nível de sistema.
 
-**Test the regression gate**
+**Teste o portão de regressão**
 
-3. Change one synthetic candidate response to contradict an earlier handoff.
-4. Re-run the evaluation.
-5. Confirm that the evaluation score changes and that the regression gate uses the measured result rather than a hardcoded scenario label.
+3. Altere uma resposta candidata sintética para contradizer um handoff anterior.
+4. Execute novamente a avaliação.
+5. Confirme que a pontuação da avaliação muda e que o portão de regressão usa o resultado medido em vez de um rótulo de cenário codificado.
 
-**Validate the Azure resources**
+**Valide os recursos do Azure**
 
-6. In the Microsoft Foundry portal, validate the provisioned Foundry account, project, and model deployment used by this lab.
+6. No portal Microsoft Foundry, valide a conta Foundry provisionada, o projeto e a implantação de modelo usados por este laboratório.
 
-**Review objective coverage**
+**Revise a cobertura dos objetivos**
 
-| Objective | Required evidence | Passing outcome |
+| Objetivo | Evidência exigida | Critério de aprovação |
 |---|---|---|
-| Define component, journey, and system metrics | Evaluator names and gate comparisons | All configured metrics appear; missing metrics fail closed. |
-| Run Responses-based evaluators through the SDK batch framework | Row JSONL and aggregate summary | Every synthetic row has evaluator output and reasons. |
-| Use synthetic coverage cases | Dataset metadata and reviewed rows | Only supplied or learner-created synthetic cases are present. |
-| Produce an auditable recommendation | Gate result, calibration, and deployment | Recommendation follows measured thresholds and names the configured deployment. |
+| Definir métricas de componente, jornada e sistema | Nomes dos avaliadores e comparações de portões | Todas as métricas configuradas aparecem; métricas ausentes causam falha em modo fechado. |
+| Executar avaliadores baseados em Responses através do framework batch do SDK | JSONL por linha e resumo agregado | Cada linha sintética possui saída do avaliador e razões. |
+| Usar casos de cobertura sintética | Metadados do dataset e linhas revisadas | Apenas casos sintéticos fornecidos ou criados pelo aprendiz estão presentes. |
+| Produzir uma recomendação auditável | Resultado do portão, calibração e implantação | A recomendação segue os limites medidos e nomeia a implantação configurada. |
 
-## Optional challenge: Add a grounding failure
+## Desafio opcional: Adicione uma falha de grounding
 
-Add one synthetic case that completes the requested task but contradicts or omits supplied grounding evidence.
+Adicione um caso sintético que complete a tarefa solicitada mas contradiga ou omita a evidência de grounding fornecida.
 
-**Expected output:** The relevant evaluator fails the row, the aggregate report shows the affected metric, and the deterministic quality gate blocks release.
+**Saída esperada:** O avaliador relevante falha na linha, o relatório agregado mostra a métrica afetada e o portão determinístico de qualidade bloqueia a liberação.
 
-**Failure investigation:** Create judge and human-label disagreement and distinguish calibration failure from task-result failure.
-## Task 7: Review the design
+**Investigação de falha:** Crie desacordo entre juiz e rótulo humano e distinga falha de calibração de falha no resultado da tarefa.
 
-1. Answer these questions:
+## Tarefa 7: Revise o design
 
-- Which system-level metric would expose a successful agent response followed by a failed handoff?
-- What calibration sample size would you require before a judge can block production?
-- Which cases belong in canary, regression, and historical-failure partitions?
+1. Responda a estas perguntas:
 
-## Task 8: Clean up
+- Qual métrica em nível de sistema expondo uma resposta de agente bem-sucedida seguida por um handoff falho?
+- Que tamanho de amostra de calibração você exigiria antes que um juiz pudesse bloquear produção?
+- Quais casos pertencem às partições canary, regression e historical-failure?
 
-**Remove Azure resources**
+## Tarefa 8: Limpeza
 
-1. Run the following commands:
+**Remova recursos do Azure**
+
+1. Execute os seguintes comandos:
 
 ```powershell
 $env:AZURE_DEV_USER_AGENT='microsoft_foundry_skill'
@@ -353,19 +355,19 @@ azd down --purge
 Remove-Item Env:AZURE_DEV_USER_AGENT
 ```
 
-2. Confirm that the resource group is deleted.
-3. Keep only synthetic local reports that your instructor requires.
+2. Confirme que o grupo de recursos foi excluído.
+3. Mantenha apenas relatórios locais sintéticos que seu instrutor exigir.
 
-**Deactivate the virtual environment**
+**Desative o ambiente virtual**
 
-4. Run this command in every terminal where `(.venv)` appears in the prompt:
+4. Execute este comando em todo terminal onde `(.venv)` apareça no prompt:
 
 ```powershell
 deactivate
 ```
 
-5. Confirm that `(.venv)` no longer appears before changing to another lab directory.
+5. Confirme que `(.venv)` não aparece mais antes de mudar para outro diretório de laboratório.
 
-## Summary
+## Resumo
 
-You implemented a Microsoft Foundry evaluation workflow that uses synthetic datasets, specialized evaluators, human-label calibration, and deterministic regression gates to produce release evidence.
+Você implementou um workflow de avaliação Microsoft Foundry que usa datasets sintéticos, avaliadores especializados, calibração com rótulos humanos e portões determinísticos de regressão para produzir evidência de liberação.

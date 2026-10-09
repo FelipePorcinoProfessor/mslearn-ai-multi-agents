@@ -1,69 +1,70 @@
 ---
 lab:
-  title: 'Implement advanced RAG with Azure AI Search'
-  description: 'Build and validate a routed hybrid, vector, and semantic retrieval pipeline against live Azure AI Search.'
+  title: 'Implementar RAG avançado com Azure AI Search'
+  description: 'Construir e validar um pipeline de recuperação roteada híbrida, vetorial e semântica contra um Azure AI Search em execução.'
   duration: 45
   level: 400
   islab: true
   status: 'released'
+layout: default
 ---
 
-# Implement advanced RAG with Azure AI Search
+# Implementar RAG avançado com Azure AI Search
 
-## Customer scenario
+## Cenário do cliente
 
-Northwind Health needs grounded retrieval across synthetic formulary, clinical-guideline, and laboratory-reference knowledge. Exact identifiers must remain discoverable, conceptual queries must benefit from vector similarity, and semantic ranking must improve the order and captions of the candidate set. The retrieval team also needs evidence that its chunking choice improves quality enough to justify its index size and latency.
+Northwind Health precisa de recuperação fundamentada em um formulário sintético, diretriz clínica e referência laboratorial. Identificadores exatos devem permanecer pesquisáveis, consultas conceituais devem se beneficiar da similaridade vetorial e o ranqueamento semântico deve melhorar a ordem e as legendas do conjunto de candidatos. A equipe de recuperação também precisa de evidência de que a escolha de chunking (fragmentação) melhora a qualidade o bastante para justificar o tamanho do índice e a latência.
 
-## Lab scenario
+## Cenário do laboratório
 
-Compare chunking, embedding profiles, query modes, and routing over six synthetic parent documents: two formulary monographs, two guidelines, and two laboratory references. Overlapping topics make single-source and cross-domain retrieval observable. This lab retrieves evidence only; it does not build a chatbot or generate patient advice.
+Compare chunking, perfis de embedding, modos de consulta e roteamento sobre seis documentos-pai sintéticos: dois monografias de formulário, duas diretrizes e duas referências laboratoriais. Tópicos sobrepostos tornam a recuperação de fonte única e cross-domain observável. Este lab recupera apenas evidência; não constrói um chatbot nem gera aconselhamento ao paciente.
 
-Generate two variants per parent: **fixed overlap** uses 180-character windows with 40-character overlap; **structural parent-child** creates one chunk per section with its parent title and heading. The former may split sections or omit titles; the latter repeats contextual text. Measure the trade-off rather than assuming either is better.
+Gere duas variantes por pai: **fixed overlap** usa janelas de 180 caracteres com sobreposição de 40 caracteres; **structural parent-child** cria um chunk por seção com seu título de pai e cabeçalho. A primeira pode dividir seções ou omitir títulos; a segunda repete texto contextual. Meça a troca em vez de assumir que uma é melhor.
 
-### Understand the supplied JSON assets
+### Entenda os ativos JSON fornecidos
 
-| Asset | Role |
+| Ativo | Papel |
 |---|---|
-| `assets/source-documents.json` | Source corpus: stable IDs, titles, categories, source labels, and two authored sections per parent. Synthetic references, not patient records or authoritative policy. |
-| `assets/chunk-strategies.json` | Reproducible chunking parameters, not prebuilt chunks. |
-| `assets/queries.json` | Three relevance-labeled queries: exact medication lookup, conceptual laboratory question, and cross-domain coordination. Expected parent IDs score retrieval; they are not injected into queries. |
-| `assets/documents.json` | Deprecation marker only. Do not ingest it or pass it to `compare`. |
+| `assets/source-documents.json` | Corpus de origem: IDs estáveis, títulos, categorias, rótulos de origem e duas seções escritas por pai. Referências sintéticas, não registros de pacientes nem política autoritativa. |
+| `assets/chunk-strategies.json` | Parâmetros de chunking reproduzíveis, não chunks pré-construídos. |
+| `assets/queries.json` | Três queries rotuladas por relevância: busca exata de medicação, questão laboratorial conceitual e coordenação cross-domain. IDs de pai esperados devem pontuar na recuperação; eles não são injetados nas queries. |
+| `assets/documents.json` | Apenas um marcador de descontinuação. Não ingerir isto nem passá-lo para `compare`. |
 
-Generate `artifacts-generated-chunks.json` from the first two assets. Use this same artifact for ingestion and comparison; it preserves configurations, chunks, parent lineage, section metadata, and character boundaries.
+Gere `artifacts-generated-chunks.json` a partir dos dois primeiros ativos. Use este mesmo artefato para ingestão e comparação; ele preserva configurações, chunks, linhagem de pai, metadados de seção e limites de caracteres.
 
-### Follow the retrieval experiment
+### Siga o experimento de recuperação
 
-Upload both chunk strategies to three category indexes. Each chunk has a content-only baseline vector and a content-aware vector incorporating category, title, parent ID, and position. Route queries to relevant indexes and compare vector, hybrid, and semantic modes, filtering each result set to one strategy.
+Carregue ambas as estratégias de chunk em três índices por categoria. Cada chunk tem um vetor baseline apenas de conteúdo e um vetor content-aware incorporando categoria, título, ID do pai e posição. Roteie queries para índices relevantes e compare modos vector, hybrid e semantic, filtrando cada conjunto de resultados para uma estratégia.
 
-Aggregate mean reciprocal rank (MRR) and latency by strategy, mode, and embedding profile. MRR measures the first expected parent's rank, not clinical correctness, completeness, or safety. Three synthetic queries demonstrate the mechanics; production selection requires a larger representative evaluation set.
+Agregue mean reciprocal rank (MRR) e latência por estratégia, modo e perfil de embedding. MRR mede a posição do primeiro pai esperado, não correção clínica, completude ou segurança. Três queries sintéticas demonstram a mecânica; a seleção de produção requer um conjunto de avaliação representativo maior.
 
-By the end of this exercise, you will be able to:
+Ao final deste exercício, você será capaz de:
 
-- Design searchable, filterable, vector, and semantic fields for specialized indexes.
-- Generate executable fixed-overlap and structural parent-child chunk sets with recorded boundaries.
-- Upload both generated chunk sets with managed-identity authentication.
-- Execute hybrid search with `SearchClient`, `VectorizedQuery`, and semantic ranking.
-- Route queries across knowledge sources and compare MRR, ranking, and latency by chunk strategy and embedding profile.
+- Projetar campos pesquisáveis, filtráveis, vetoriais e semânticos para índices especializados.
+- Gerar conjuntos de chunks executáveis de fixed-overlap e structural parent-child com limites registrados.
+- Fazer upload de ambos os conjuntos gerados com autenticação por identidade gerenciada.
+- Executar busca híbrida com `SearchClient`, `VectorizedQuery` e ranqueamento semântico.
+- Roteiar queries através de fontes de conhecimento e comparar MRR, ranqueamento e latência por estratégia de chunk e perfil de embedding.
 
-> **Important**: Live Azure validation is required because hybrid RRF and semantic ranking are service behaviors. Azure AI Search Standard and Azure OpenAI are billable; use instructor-approved quota and run `azd down --purge` after validation.
+> **Importante**: Validação ao vivo no Azure é necessária porque RRF híbrido e ranqueamento semântico são comportamentos do serviço. Azure AI Search Standard e Azure OpenAI são serviços cobrados; use quota aprovada pelo instrutor e execute `azd down --purge` após a validação.
 
-## Task 1: Prepare the lab
+## Tarefa 1: Preparar o laboratório
 
-Install [Python 3.11 or later](https://www.python.org/downloads/), [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd), [Git](https://git-scm.com/downloads), [Visual Studio Code](https://code.visualstudio.com/download), and the [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python) and [Bicep](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-bicep) extensions. You need permission to create Azure AI Search and Azure OpenAI resources and role assignments. Your region must support the selected embedding deployment.
+Instale [Python 3.11 ou posterior](https://www.python.org/downloads/), [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd), [Git](https://git-scm.com/downloads), [Visual Studio Code](https://code.visualstudio.com/download), e as extensões [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python) e [Bicep](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-bicep). Você precisa de permissão para criar recursos Azure AI Search e Azure OpenAI e atribuições de função. Sua região deve suportar o deployment de embedding selecionado.
 
-**Clone and open the repository**
+**Clone e abra o repositório**
 
-1. If you haven't already done so, clone the [lab source repository](https://github.com/MicrosoftLearning/mslearn-ai-multi-agents/tree/main), or fork the repository and clone your fork:
+1. Se ainda não o fez, clone o [repositório fonte do lab](https://github.com/MicrosoftLearning/mslearn-ai-multi-agents/tree/main), ou faça um fork do repositório e clone seu fork:
 
 ```console
 git clone https://github.com/MicrosoftLearning/mslearn-ai-multi-agents.git
 ```
 
-2. Open the cloned repository in Visual Studio Code.
+2. Abra o repositório clonado no Visual Studio Code.
 
-**Verify tools and authentication**
+**Verifique ferramentas e autenticação**
 
-3. Validate the required tools, credentials, and active subscription from the VS Code terminal:
+3. Valide as ferramentas necessárias, credenciais e assinatura ativa a partir do terminal do VS Code:
 
 ```powershell
 cd Allfiles\07-northwind-health-advanced-rag
@@ -73,44 +74,44 @@ python --version
 az account show --output table
 ```
 
-All documents are synthetic.
+Todos os documentos são sintéticos.
 
-4. Authenticate with `DefaultAzureCredential`.
-5. Never add search admin keys or model keys to `.env`.
+4. Autentique-se com `DefaultAzureCredential`.
+5. Nunca adicione chaves de administrador do Search ou chaves de modelo em `.env`.
 
-**Architecture checkpoint**
+**Ponto de verificação de arquitetura**
 
-Review these components before editing:
+Revise estes componentes antes de editar:
 
-| Component | What to locate |
+| Componente | O que localizar |
 |---|---|
-| `assets/source-documents.json` | Two source documents in each category |
-| `assets/chunk-strategies.json` | Fixed-overlap and structural parent-child parameters |
-| `assets/queries.json` | Three relevance-labeled queries |
-| `assets/documents.json` | Deprecation marker; do not ingest it |
-| `src/` and `infra/main.bicep` | Local chunk generation and the Azure-dependent embedding, indexing, ingestion, routing, and search operations |
+| `assets/source-documents.json` | Dois documentos-fonte em cada categoria |
+| `assets/chunk-strategies.json` | Parâmetros fixed-overlap e structural parent-child |
+| `assets/queries.json` | Três queries rotuladas por relevância |
+| `assets/documents.json` | Marcador de descontinuação; não ingerir |
+| `src/` e `infra/main.bicep` | Geração local de chunks e as operações dependentes do Azure: embedding, indexação, ingestão, roteamento e busca |
 
-Before continuing, confirm which operations run locally and which require Azure AI Search or Azure OpenAI.
+Antes de continuar, confirme quais operações rodam localmente e quais requerem Azure AI Search ou Azure OpenAI.
 
-> Do not replace service calls with local similarity math or precomputed scores.
+> Não substitua chamadas de serviço por matemática de similaridade local ou scores pré-computados.
 
-## Task 2: Build the virtual environment
+## Tarefa 2: Criar o ambiente virtual
 
-1. Create and activate the virtual environment:
+1. Crie e ative o ambiente virtual:
 
 ```powershell
 ./scripts/setup.ps1
 . ./.venv/Scripts/Activate.ps1
 ```
 
-> On macOS/Linux, run `bash scripts/setup.sh` and `source .venv/bin/activate` instead.
+> No macOS/Linux, execute `bash scripts/setup.sh` e `source .venv/bin/activate` em vez disso.
 
-**Generate the chunk sets**
+**Gere os conjuntos de chunks**
 
-2. Before provisioning, inspect `assets/source-documents.json` and `assets/chunk-strategies.json`.
-3. Confirm every record is synthetic and explain how `size_chars`, `overlap_chars`, section boundaries, and parent-title context can affect retrieval.
+2. Antes do provisionamento, inspeccione `assets/source-documents.json` e `assets/chunk-strategies.json`.
+3. Confirme que todo registro é sintético e explique como `size_chars`, `overlap_chars`, limites de seção e contexto de título do pai podem afetar a recuperação.
 
-4. Generate both chunk sets from the same source documents:
+4. Gere ambos os conjuntos de chunks a partir dos mesmos documentos-fonte:
 
 ```powershell
 python -m src.main generate-chunks --source assets/source-documents.json --strategies assets/chunk-strategies.json --output artifacts-generated-chunks.json
@@ -119,29 +120,29 @@ $chunks.strategy_summaries | Format-Table strategy,chunk_count
 $chunks.strategy_summaries.boundaries | Select-Object -First 8 | Format-Table id,parent_id,start,end,section_heading
 ```
 
-5. Do not manually edit the generated artifact.
-6. Change the source documents or strategy configuration and regenerate it so the recorded boundaries remain reproducible.
+5. Não edite manualmente o artefato gerado.
+6. Altere os documentos-fonte ou a configuração da estratégia e regenere-o para que os limites registrados permaneçam reproduzíveis.
 
-## Task 3: Deploy the Azure resources
+## Tarefa 3: Provisionar os recursos do Azure
 
-**Set the deployment values**
+**Defina os valores de deployment**
 
-1. Review cost, model quota, and access before provisioning.
+1. Revise custo, quota de modelos e acesso antes do provisionamento.
 
-Azure AI Search capacity and Azure OpenAI embedding calls are billable.
+Azure AI Search capacity e chamadas de embedding do Azure OpenAI são cobradas.
 
-2. Use a unique environment and delete it after validation.
+2. Use um ambiente único e delete-o após a validação.
 
-`azd` provisions infrastructure. Chunk generation is local; ingestion and search run separately against Azure.
+`azd` provisiona a infraestrutura. Geração de chunks é local; ingestão e busca rodam separadamente contra o Azure.
 
-3. Set `$azureRegion` to an approved region supporting Standard Azure AI Search and Global Standard `text-embedding-3-small`. The example uses `eastus2`; regional capacity varies.
+3. Defina `$azureRegion` para uma região aprovada que suporte Azure AI Search Standard e Global Standard `text-embedding-3-small`. O exemplo usa `eastus2`; capacidade regional varia.
 
-4. Change it if necessary for your subscription and current service availability.
-> **Resource group:** If your lab environment provides a precreated resource group, set `$resourceGroupName` to its name. Otherwise, leave `$resourceGroupName` empty so the script creates a unique resource group in your subscription.
+4. Mude-o se necessário para sua assinatura e disponibilidade atual de serviço.
+> **Grupo de recursos (Resource group):** Se seu ambiente de lab fornecer um grupo de recursos pré-criado, defina `$resourceGroupName` para seu nome. Caso contrário, deixe `$resourceGroupName` vazio para que o script crie um grupo de recursos único na sua assinatura.
 
-**Validate and provision the infrastructure**
+**Valide e faça o provisionamento da infraestrutura**
 
-5. Run the following commands:
+5. Execute os comandos a seguir:
 
 ```powershell
 $azureRegion = 'eastus2'
@@ -160,30 +161,30 @@ azd provision
 azd env get-values | Out-File .env -Encoding utf8
 ```
 
-6. If provisioning fails, inspect the first Azure deployment error. Search or model regional availability, model quota, and role-assignment permissions are common causes.
-7. Correct the relevant environment setting or permission, then run `azd provision` again.
+6. Se o provisionamento falhar, inspecione o primeiro erro de deployment do Azure. Disponibilidade regional de modelo ou de pesquisa, quota de modelo e permissões de atribuição de função são causas comuns.
+7. Corrija a configuração de ambiente relevante ou permissão, então execute `azd provision` novamente.
 
-**Verify the generated environment**
+**Verifique o ambiente gerado**
 
-8. After provisioning succeeds, validate that `.env` includes `AZURE_SEARCH_ENDPOINT`, `AZURE_OPENAI_ENDPOINT`, and `AZURE_OPENAI_EMBEDDING_DEPLOYMENT`. Role assignments grant your principal Search Service Contributor, Search Index Data Contributor, and Cognitive Services OpenAI User.
-9. Allow several minutes for RBAC propagation.
-10. Do not add admin keys or model keys to `.env`.
+8. Depois que o provisionamento for bem-sucedido, valide que `.env` inclua `AZURE_SEARCH_ENDPOINT`, `AZURE_OPENAI_ENDPOINT` e `AZURE_OPENAI_EMBEDDING_DEPLOYMENT`. Atribuições de função concedem ao seu principal Search Service Contributor, Search Index Data Contributor e Cognitive Services OpenAI User.
+9. Aguarde vários minutos para a propagação de RBAC.
+10. Não adicione chaves admin ou chaves de modelo em `.env`.
 
-## Task 4: Implement the solution
+## Tarefa 4: Implementar a solução
 
-Each placeholder marks incomplete code. Copy each supplied snippet into its placeholder location, keep the `LAB PLACEHOLDER` comment, replace only the indicated incomplete line or block, and preserve the surrounding indentation.
+Cada placeholder marca código incompleto. Copie cada snippet fornecido para seu local placeholder, mantenha o comentário `LAB PLACEHOLDER`, substitua somente a linha ou bloco indicado como incompleto e preserve a indentação ao redor.
 
-1. Use the `generate-chunks` output from Task 2; regenerate only if the source or configuration changed.
-2. Inspect `artifacts-generated-chunks.json`.
-3. Confirm that both strategy summaries record their configuration, chunk count, parent IDs, and character boundaries.
+1. Use a saída `generate-chunks` da Tarefa 2; regenere apenas se a fonte ou configuração mudou.
+2. Inspecione `artifacts-generated-chunks.json`.
+3. Confirme que ambos os summaries de estratégia registram sua configuração, contagem de chunks, IDs de pai e limites de caracteres.
 
-> **Tip:** After you copy and paste each Python snippet, validate its indentation against the surrounding function or class before running the code.
+> Dica: Depois de copiar e colar cada snippet Python, valide sua indentação em relação à função ou classe circundante antes de executar o código.
 
-**Create specialized vector indexes**
+**Crie índices vetoriais especializados**
 
-4. In `src/index_manager.py`, find the exact marker `# LAB PLACEHOLDER 1: Replace this line with the Task 1 sample.`
+4. Em `src/index_manager.py`, localize o marcador exato `# LAB PLACEHOLDER 1: Replace this line with the Task 1 sample.`
 
-5. Replace only the `raise NotImplementedError` line beneath it with:
+5. Substitua somente a linha `raise NotImplementedError` abaixo dele por:
 
 ```python
   client = SearchIndexClient(endpoint=endpoint, credential=credential)
@@ -247,13 +248,13 @@ Each placeholder marks incomplete code. Copy each supplied snippet into its plac
   return created
 ```
 
-The same governed schema supports three independently routed indexes. Vector dimensions come from configuration, so changing the embedding model does not require editing source.
+O mesmo schema governado suporta três índices roteados independentemente. As dimensões vetoriais vêm da configuração, então mudar o modelo de embedding não requer editar o código-fonte.
 
-**Generate ordered embeddings**
+**Gere embeddings ordenados**
 
-6. In `src/embeddings.py`, find the exact marker `# LAB PLACEHOLDER 2: Replace this line with the Task 2 sample.`
+6. Em `src/embeddings.py`, localize o marcador exato `# LAB PLACEHOLDER 2: Replace this line with the Task 2 sample.`
 
-7. Replace only the `raise NotImplementedError` line beneath it with:
+7. Substitua somente a linha `raise NotImplementedError` abaixo dele por:
 
 ```python
   if not texts:
@@ -262,13 +263,13 @@ The same governed schema supports three independently routed indexes. Vector dim
   return [item.embedding for item in sorted(response.data, key=lambda item: item.index)]
 ```
 
-The deployment name is parameterized through the azd output. Sorting by response index preserves the caller's document-to-vector mapping.
+O nome do deployment é parametrizado através da output azd. Ordenar pelo índice de resposta preserva o mapeamento documento-para-vetor do chamador.
 
-**Embed and upload both strategies**
+**Embed e faça upload de ambas as estratégias**
 
-8. In `src/ingest.py`, find the exact marker `# LAB PLACEHOLDER 3: Replace this line with the Task 3 sample.`
+8. Em `src/ingest.py`, localize o marcador exato `# LAB PLACEHOLDER 3: Replace this line with the Task 3 sample.`
 
-9. Replace only the `raise NotImplementedError` line beneath it with:
+9. Substitua somente a linha `raise NotImplementedError` abaixo dele por:
 
 ```python
   baseline_vectors = embed_texts(
@@ -304,13 +305,13 @@ The deployment name is parameterized through the azd output. Sorting by response
   return counts
 ```
 
-Both profiles are generated from the same ordered document list, while separate category/strategy batches keep ingestion evidence attributable.
+Ambos os perfis são gerados a partir da mesma lista ordenada de documentos, enquanto batches separados por categoria/estratégia mantêm evidência de ingestão atribuível.
 
-**Route by explicit intent**
+**Roteie por intenção explícita**
 
-10. In `src/router.py`, find the exact marker `# LAB PLACEHOLDER 4: Replace this line with the Task 4 sample.`
+10. Em `src/router.py`, localize o marcador exato `# LAB PLACEHOLDER 4: Replace this line with the Task 4 sample.`
 
-11. Replace only the `raise NotImplementedError` line beneath it with:
+11. Substitua somente a linha `raise NotImplementedError` abaixo dele por:
 
 ```python
   normalized = query.casefold()
@@ -329,13 +330,13 @@ Both profiles are generated from the same ordered document list, while separate 
   return [INDEX_NAMES[matched[0]]]
 ```
 
-One clear intent routes narrowly. Multi-factor or unclassified queries fan out to all three indexes rather than silently dropping a relevant source.
+Uma intenção clara roteia de forma estreita. Queries multifator ou não classificadas espalham para os três índices em vez de descartar silenciosamente uma fonte relevante.
 
-**Execute vector, hybrid, and semantic search**
+**Execute busca vetorial, híbrida e semântica**
 
-12. In `src/search_pipeline.py`, find the exact marker `# LAB PLACEHOLDER 5: Replace this line with the Task 5 sample.`
+12. Em `src/search_pipeline.py`, localize o marcador exato `# LAB PLACEHOLDER 5: Replace this line with the Task 5 sample.`
 
-13. Replace only the `raise NotImplementedError` line beneath it with:
+13. Substitua somente a linha `raise NotImplementedError` abaixo dele por:
 
 ```python
   if mode not in {"vector", "hybrid", "semantic"}:
@@ -384,46 +385,46 @@ One clear intent routes narrowly. Multi-factor or unclassified queries fan out t
   return output
 ```
 
-Every mode uses Azure AI Search. The strategy filter prevents mixed candidate sets, and the returned IDs, boundaries, service scores, reranker scores, captions, and deterministic citations remain available for evaluation.
+Cada modo usa Azure AI Search. O filtro de estratégia impede conjuntos de candidatos mistos, e os IDs retornados, limites, scores do serviço, scores do reranker, legendas e citações determinísticas permanecem disponíveis para avaliação.
 
-The hybrid branch is the current Azure AI Search pattern: `search_text` and `vector_queries` are submitted together in one `SearchClient.search` request, then Reciprocal Rank Fusion combines the lexical and vector result sets. Do not split this into separate client-side searches or replace Azure AI Search.
+O branch híbrido é o padrão atual do Azure AI Search: `search_text` e `vector_queries` são enviados juntos em uma única requisição `SearchClient.search`, então Reciprocal Rank Fusion combina os conjuntos léxicos e vetoriais. Não divida isto em buscas separadas do lado do cliente nem substitua o Azure AI Search.
 
-For a production hybrid query that uses semantic reranking, candidate depth and returned result count are separate controls. Microsoft recommends feeding semantic ranker a sufficiently deep candidate set, commonly 50 candidates (`k=50` for the vector side, or `k` plus `maxTextRecallSize` totaling at least 50 in newer APIs), while `top` can remain the smaller final count shown to the caller. This tiny lab corpus uses `k_nearest_neighbors=top` so learners can compare every returned chunk without manufacturing 50 candidates. If the corpus grows, tune candidate depth independently and measure relevance, latency, and cost. See [Create a hybrid query in Azure AI Search](https://learn.microsoft.com/azure/search/hybrid-search-how-to-query#configure-a-query-response).
+Para uma query híbrida de produção que use reranking semântico, profundidade de candidatos e contagem de resultados retornados são controles separados. A Microsoft recomenda alimentar o ranker semântico com um conjunto de candidatos suficientemente profundo, comumente 50 candidatos (`k=50` para o lado vetorial, ou `k` mais `maxTextRecallSize` totalizando pelo menos 50 em APIs mais novas), enquanto `top` pode permanecer a contagem final menor mostrada ao chamador. Este pequeno corpus de laboratório usa `k_nearest_neighbors=top` para que os aprendizes possam comparar cada chunk retornado sem fabricar 50 candidatos. Se o corpus crescer, ajuste a profundidade de candidatos independentemente e meça relevância, latência e custo. Veja [Create a hybrid query in Azure AI Search](https://learn.microsoft.com/azure/search/hybrid-search-how-to-query#configure-a-query-response).
 
-## Task 5: Run the solution
+## Tarefa 5: Executar a solução
 
-**Create and populate the indexes**
+**Crie e popula os índices**
 
-1. Create indexes and ingest the synthetic chunks:
+1. Crie índices e ingira os chunks sintéticos:
 
 ```powershell
 python -m src.main create-indexes
 python -m src.main ingest --documents artifacts-generated-chunks.json
 ```
 
-**Verify the indexes in the Azure portal**
+**Verifique os índices no portal do Azure**
 
-2. In the [Azure portal](https://portal.azure.com), open the Azure AI Search service provisioned for this lab.
-3. Use the `AZURE_SEARCH_ENDPOINT` value in `.env` to identify the service if your subscription contains more than one.
-4. On the service menu, under **Search management**, select **Indexes**.
-5. Confirm that the following indexes and document counts appear:
+2. No [portal do Azure (Azure portal)](https://portal.azure.com), abra o serviço Azure AI Search provisionado para este lab.
+3. Use o valor `AZURE_SEARCH_ENDPOINT` em `.env` para identificar o serviço se sua assinatura contiver mais de um.
+4. No menu do serviço, em **Gerenciamento de pesquisa (Search management)**, selecione **Índices (Indexes)**.
+5. Confirme que os seguintes índices e contagens de documentos aparecem:
 
-  | Index | Expected document count |
+  | Índice | Contagem de documentos esperada |
   |---|---:|
   | `northwind-formulary-v1` | 10 |
   | `northwind-guidelines-v1` | 9 |
   | `northwind-labs-v1` | 9 |
 
-6. If the counts have not updated, wait briefly and select **Refresh**.
-7. If an index remains missing or has a lower count, return to the terminal output and check whether `create-indexes` or an `<strategy>:<category>` ingestion batch reported an error.
+6. Se as contagens não tiverem sido atualizadas, aguarde brevemente e selecione **Atualizar (Refresh)**.
+7. Se um índice permanecer ausente ou com contagem menor, volte à saída do terminal e verifique se `create-indexes` ou um lote de ingestão `<strategy>:<category>` reportou um erro.
 
-For the unmodified corpus, counts include both strategies: formulary has six fixed and four structural chunks; guidelines and labs each have five fixed and four structural chunks. Counts verify ingestion, not retrieval quality.
+Para o corpus não modificado, as contagens incluem ambas as estratégias: formulary tem seis chunks fixed e quatro structural; guidelines e labs cada um tem cinco fixed e quatro structural. As contagens verificam ingestão, não qualidade de recuperação.
 
-**Run the retrieval queries**
+**Execute as queries de recuperação**
 
-8. Run the following commands **one at a time**, not as a pasted batch.
-9. Inspect each JSON result before continuing.
-10. Associate its routed indexes, ranking, scores, and captions with the command's options.
+8. Execute os comandos a seguir **um de cada vez**, não em lote colado.
+9. Inspecione cada resultado JSON antes de continuar.
+10. Associe seus índices roteados, ranqueamento, scores e legendas com as opções do comando.
 
 ```powershell
 python -m src.main search --query "atorvastatin contraindications" --chunk-strategy fixed-overlap
@@ -435,40 +436,40 @@ python -m src.main search --query "atorvastatin contraindications" --mode hybrid
 python -m src.main search --query "atorvastatin contraindications" --mode semantic --chunk-strategy structural-parent-child
 ```
 
-> **Note:** Queries return grounding chunks only; no chat model receives them in this lab.
+> **Nota:** Queries retornam apenas chunks de grounding; nenhum modelo de chat os recebe neste lab.
 
-11. For each result, first confirm which index or indexes were selected.
-12. Compare `parent_id`, `chunk_strategy`, `@search.score`, optional `@search.reranker_score`, captions, and citations. The first four queries exercise routing and chunking; the final three compare retrieval modes and profiles for atorvastatin.
+11. Para cada resultado, primeiro confirme quais índices foram selecionados.
+12. Compare `parent_id`, `chunk_strategy`, `@search.score`, opcional `@search.reranker_score`, legendas e citações. As primeiras quatro queries exercitam roteamento e chunking; as três finais comparam modos de recuperação e perfis para atorvastatina.
 
-13. Run the full comparison once to record every configured query, strategy, mode, embedding-profile, and routed-index trial:
+13. Execute a comparação completa uma vez para registrar cada query, estratégia, modo, perfil de embedding e tentativa de índice roteado configurados:
 
 ```powershell
 python -m src.main compare --queries assets/queries.json --documents artifacts-generated-chunks.json --output artifacts-retrieval-comparison.json
 ```
 
-**Understand the output**
+**Entenda a saída**
 
-`create-indexes` returns the three deployed index names. `ingest` returns counts keyed as `<strategy>:<category>`, which proves that no strategy/category batch disappeared. Search output is grouped by routed index and includes chunk identity, parent identity, boundaries, deterministic citation, `@search.score`, optional `@search.reranker_score`, and semantic captions. In the comparison artifact, `trials` contains call-level ranking and latency evidence, while `aggregates` reports MRR and average latency for each strategy, mode, and embedding profile.
+`create-indexes` retorna os três nomes de índice implantados. `ingest` retorna contagens indexadas com chave `<strategy>:<category>`, o que prova que nenhum lote de estratégia/categoria desapareceu. A saída de busca é agrupada por índice roteado e inclui identidade do chunk, identidade do pai, limites, citação determinística, `@search.score`, opcional `@search.reranker_score`, e legendas semânticas. No artefato de comparação, `trials` contém evidência de ranqueamento e latência a nível de chamada, enquanto `aggregates` reporta MRR e latência média para cada estratégia, modo e perfil de embedding.
 
-## Task 6: Validate the implementation
+## Tarefa 6: Validar a implementação
 
-**Validate the retrieval evidence**
+**Valide as evidências de recuperação**
 
-1. Capture live evidence for each objective:
+1. Capture evidência ao vivo para cada objetivo:
 
-- `create-indexes` reports three index names and their semantic configuration.
-- `artifacts-generated-chunks.json` records both configurations, per-strategy chunk counts, and every chunk boundary. Both strategies cover the same six parent IDs.
-- `ingest` reports every synthetic chunk succeeded, separated by strategy and category.
-- The atorvastatin query routes to the formulary index and returns exact-name matches plus vector candidates.
-- The A1C query routes to the laboratory index and includes `@search.reranker_score` or a semantic caption.
-- The multi-factor query searches all three indexes and emits source-specific citations.
-- Compare vector-only and hybrid rankings using the same query, strategy, and embedding profile in the trial artifact. Rankings may coincide; service-call evidence, not a required ordering change, establishes live retrieval.
-- Every trial in `artifacts-retrieval-comparison.json` identifies one chunk strategy, query, index, mode, and embedding profile. Its ranking contains child and parent IDs, and its scores and latency come from the same service call.
-- `aggregates` reports MRR and average latency by chunk strategy, mode, and embedding profile. Compare these values with chunk count and embedding-input length before selecting a strategy.
+- `create-indexes` reporta três nomes de índice e sua configuração semântica.
+- `artifacts-generated-chunks.json` registra ambas as configurações, contagens de chunks por estratégia e cada limite de chunk. Ambas as estratégias cobrem os mesmos seis IDs de pai.
+- `ingest` reporta que cada chunk sintético foi ingerido com sucesso, separado por estratégia e categoria.
+- A query de atorvastatina roteia para o índice de formulary e retorna correspondências por nome exato além de candidatos vetoriais.
+- A query A1C roteia para o índice laboratorial e inclui `@search.reranker_score` ou uma legenda semântica.
+- A query multifator pesquisa os três índices e emite citações específicas da fonte.
+- Compare ranqueamentos somente vetoriais e híbridos usando a mesma query, estratégia e perfil de embedding no artefato de trial. Os ranqueamentos podem coincidir; evidência de chamada ao serviço, não uma alteração de ordenação obrigatória, estabelece a recuperação ao vivo.
+- Cada trial em `artifacts-retrieval-comparison.json` identifica uma estratégia de chunk, query, índice, modo e perfil de embedding. Seu ranqueamento contém IDs filho e pai, e seus scores e latência vêm da mesma chamada de serviço.
+- `aggregates` reporta MRR e latência média por estratégia de chunk, modo e perfil de embedding. Compare esses valores com contagem de chunks e comprimento de entrada de embedding antes de selecionar uma estratégia.
 
-**Run the final checks**
+**Execute as checagens finais**
 
-2. Run local and infrastructure validation again:
+2. Execute novamente a validação local e de infraestrutura:
 
 ```powershell
 python scripts/preflight.py
@@ -480,47 +481,48 @@ $evidence.aggregates | Sort-Object mode,embedding_profile,chunk_strategy | Forma
 $evidence.trials | Sort-Object query,index,mode,embedding_profile,chunk_strategy | Format-Table query,index,chunk_strategy,mode,embedding_profile,reciprocal_rank,latency_ms
 ```
 
-Expect `Preflight passed`, both chunk strategies with six parent IDs each, and error-free Python and Bicep compilation. Use the live evidence checklist above to assess retrieval, not local checks alone.
+Espere `Preflight passed`, ambas as estratégias de chunk com seis IDs de pai cada, e compilação Python e Bicep sem erros. Use a checklist de evidência ao vivo acima para avaliar recuperação, não apenas checagens locais.
 
-## Optional challenge: Create a ranking disagreement
+## Desafio opcional: Criar um desacordo de ranqueamento
 
-Add a synthetic query for which lexical and vector retrieval select different top documents.
+Adicione uma query sintética para a qual a recuperação léxica e a vetorial selecionem documentos-top diferentes.
 
-**Expected output:** The comparison artifact identifies the selected route, winning document, retrieval mode, ranking scores, and the metric used to justify the choice.
+**Saída esperada:** O artefato de comparação identifica a rota selecionada, documento vencedor, modo de recuperação, scores de ranqueamento e a métrica usada para justificar a escolha.
 
-**Failure investigation:** Remove one required field from a disposable index definition and determine whether the resulting failure belongs to ingestion, schema, routing, or grounding.
-## Task 7: Review the design
+**Investigação de falha:** Remova um campo requerido de uma definição de índice descartável e determine se a falha resultante pertence à ingestão, schema, roteamento ou grounding.
 
-1. Answer these questions:
+## Tarefa 7: Revisar o design
 
-- Which query types should disable semantic query rewrite to preserve exact identifiers?
-- What evidence would justify adding a cross-encoder after semantic ranking?
-- How should source health alter routing without changing intent classification?
-- Which retrieval fields are safe to include in agent context?
+1. Responda a estas perguntas:
 
-## Task 8: Clean up
+- Quais tipos de query devem desativar semantic query rewrite para preservar identificadores exatos?
+- Qual evidência justificaria adicionar um cross-encoder após o ranqueamento semântico?
+- Como a saúde da fonte deveria alterar o roteamento sem mudar a classificação de intenção?
+- Quais campos de recuperação são seguros para incluir no contexto de um agente?
 
-**Remove Azure resources**
+## Tarefa 8: Limpar
 
-1. Run the following command:
+**Remova recursos do Azure**
+
+1. Execute o seguinte comando:
 
 ```powershell
 azd down --purge
 ```
 
-2. Confirm the search and Azure OpenAI resources are deleted.
-3. Remove `.env` when no longer needed.
+2. Confirme que os recursos de search e Azure OpenAI foram deletados.
+3. Remova `.env` quando não for mais necessário.
 
-**Deactivate the virtual environment**
+**Desative o ambiente virtual**
 
-4. Run this command in every terminal where `(.venv)` appears in the prompt:
+4. Execute este comando em todo terminal onde `(.venv)` apareça no prompt:
 
 ```powershell
 deactivate
 ```
 
-5. Confirm that `(.venv)` no longer appears before changing to another lab directory.
+5. Confirme que `(.venv)` não aparece mais antes de mudar para outro diretório de lab.
 
-## Summary
+## Resumo
 
-You compared reproducible chunk strategies and embedding profiles using live routed retrieval, preserving lineage, ranking, MRR, and latency evidence for the design decision.
+Você comparou estratégias de chunk reproduzíveis e perfis de embedding usando recuperação roteada ao vivo, preservando linhagem, ranqueamento, MRR e evidência de latência para a decisão de design.

@@ -1,51 +1,52 @@
 ---
 lab:
-  title: 'Optimize multi-agent performance and cost with measured evidence'
-  description: 'Measure live model usage, then implement model routing, caching, token budgets, and quality-floor escalation for Adventure Works.'
+  title: 'Otimizar desempenho e custo multiagente com evidência mensurada'
+  description: 'Meça o uso de modelos em execução, depois implemente roteamento de modelos, cache, orçamentos de tokens e escalonamento por piso de qualidade para Adventure Works.'
   duration: 45
   level: 400
   islab: true
   status: 'released'
+layout: default
 ---
 
-# Optimize multi-agent performance and cost with measured evidence
+# Otimizar desempenho e custo multiagente com evidência mensurada
 
-## Customer scenario
+## Cenário do cliente
 
-Adventure Works routes every Customer Intelligence Platform request to its premium model and repeatedly sends oversized context. The platform team needs evidence that a cheaper design meets each customer segment's quality, latency, and budget envelope.
+Adventure Works direciona todas as solicitações da sua Customer Intelligence Platform para seu modelo premium e repetidamente envia contexto excessivo. A equipe da plataforma precisa de evidência de que um design mais barato atende ao envelope de qualidade, latência e orçamento de cada segmento de cliente.
 
-## Lab scenario
+## Cenário do laboratório
 
-You will run synthetic requests against live Microsoft Foundry deployments, capture actual latency and token usage, and implement routing, result caching, context budgets, and quality-floor escalation. You will compare a premium control run with the optimized policy and recommend a configuration from evidence.
+Você executará solicitações sintéticas contra implantações ativas do Microsoft Foundry, capturará latência real e uso de tokens, e implementará roteamento, cache de resultados, orçamentos de contexto e escalonamento por piso de qualidade. Você comparará uma execução de controle premium com a política otimizada e recomendará uma configuração com base nas evidências.
 
-By the end of this exercise, you will be able to:
+Ao final deste exercício, você será capaz de:
 
-- Route simple, moderate, and high-risk requests to appropriate model tiers.
-- Apply stable prompt prefixes, distributed result caching, and explicit invalidation metadata.
-- Enforce token budgets before model invocation.
-- Compare quality, cost, latency, retries, and cache behavior with measured evidence.
+- Rotealar solicitações simples, moderadas e de alto risco para as camadas (tiers) de modelo apropriadas.
+- Aplicar prefixos de prompt estáveis, cache distribuído de resultados e metadados explícitos de invalidação.
+- Aplicar orçamentos de tokens antes da invocação do modelo.
+- Comparar qualidade, custo, latência, tentativas e comportamento do cache com evidência mensurada.
 
-> **Important**: Live model calls and Azure Managed Redis are billable. Confirm model pricing for your region, cap the supplied synthetic workload, and clean up immediately.
+> **Importante**: Chamadas de modelos ao vivo e Azure Managed Redis geram cobrança. Confirme o preço dos modelos para sua região, limite a carga de trabalho sintética fornecida e faça a limpeza imediatamente.
 
-## Task 1: Prepare the lab
+## Tarefa 1: Preparar o laboratório
 
-1. Install [Python 3.10 or later](https://www.python.org/downloads/), [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd), and [Bicep](https://learn.microsoft.com/azure/azure-resource-manager/bicep/install).
+1. Instale [Python 3.10 or later](https://www.python.org/downloads/), [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli), [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd), e [Bicep](https://learn.microsoft.com/azure/azure-resource-manager/bicep/install).
 
-You need an Azure subscription, permission to create Foundry and Redis resources, two or three instructor-approved chat deployments, and current input/output token prices. Use your signed-in identity and never store access keys.
+Você precisa de uma assinatura do Azure, permissão para criar recursos do Foundry e Redis, duas ou três implantações de chat aprovadas pelo instrutor e preços atuais de tokens de entrada/saída. Use sua identidade autenticada e nunca armazene chaves de acesso.
 
-**Clone and open the repository**
+**Clonar e abrir o repositório**
 
-2. If you haven't already done so, clone the [lab source repository](https://github.com/MicrosoftLearning/mslearn-ai-multi-agents/tree/main), or fork the repository and clone your fork:
+2. Se ainda não fez, clone o [repositório de origem do laboratório](https://github.com/MicrosoftLearning/mslearn-ai-multi-agents/tree/main), ou faça fork do repositório e clone seu fork:
 
 ```console
 git clone https://github.com/MicrosoftLearning/mslearn-ai-multi-agents.git
 ```
 
-3. Open the cloned repository in Visual Studio Code.
+3. Abra o repositório clonado no Visual Studio Code.
 
-**Verify tools and authentication**
+**Verificar ferramentas e autenticação**
 
-4. Validate the required tools, credentials, and active subscription from the VS Code terminal:
+4. Valide as ferramentas necessárias, credenciais e a assinatura ativa a partir do terminal do VS Code:
 
 ```powershell
 cd Allfiles\15-adventure-works-performance-cost
@@ -55,13 +56,13 @@ python --version
 az account show --output table
 ```
 
-**Architecture checkpoint**
+**Ponto de verificação da arquitetura**
 
-Review `assets/requests.jsonl`, `assets/optimization-config.json`, `src/main.py`, `src/cache.py`, `.env.example`, and `infra/main.bicep`. Before continuing, confirm that one request passes through deterministic tier selection, context budgeting, cache lookup, model invocation or cache return, quality-floor evaluation, and evidence recording.
+Revise `assets/requests.jsonl`, `assets/optimization-config.json`, `src/main.py`, `src/cache.py`, `.env.example`, e `infra/main.bicep`. Antes de continuar, confirme que uma solicitação passa por seleção determinística de nível, orçamento de contexto, busca no cache, invocação do modelo ou retorno do cache, avaliação do piso de qualidade e registro de evidência.
 
-## Task 2: Build the virtual environment
+## Tarefa 2: Criar o ambiente virtual
 
-1. On Windows, create and activate the virtual environment and initialize `.env`:
+1. No Windows, crie e ative o ambiente virtual e inicialize `.env`:
 
 ```powershell
 ./scripts/setup.ps1
@@ -69,26 +70,26 @@ Review `assets/requests.jsonl`, `assets/optimization-config.json`, `src/main.py`
 Copy-Item .env.example .env
 ```
 
-> On macOS/Linux, run `bash scripts/setup.sh`, `source .venv/bin/activate`, and `cp .env.example .env` instead.
+> No macOS/Linux, execute `bash scripts/setup.sh`, `source .venv/bin/activate`, e `cp .env.example .env` em vez disso.
 
-## Task 3: Deploy Azure resources
+## Tarefa 3: Implantar recursos do Azure
 
-1. Review Foundry model usage and Azure Managed Redis costs, model quota, and role access before provisioning.
-2. Cap the supplied synthetic workload and use a unique environment.
+1. Revise o uso de modelo do Foundry e os custos do Azure Managed Redis, cota de modelo e acesso por função antes do provisionamento.
+2. Limite a carga de trabalho sintética fornecida e use um ambiente único.
 
-`azd` provisions infrastructure; the benchmark runs separately and incurs model charges.
+`azd` provisiona a infraestrutura; o benchmark é executado separadamente e gera cobranças de modelo.
 
-**Set the deployment values**
+**Definir os valores de implantação**
 
-3. Set `$azureRegion` to an approved region that supports the required models and services.
-4. Replace the example value `eastus2` if needed.
-> **Resource group:** If your lab environment provides a precreated resource group, set `$resourceGroupName` to its name. Otherwise, leave `$resourceGroupName` empty so the script creates a unique resource group in your subscription.
+3. Defina `$azureRegion` para uma região aprovada que ofereça os modelos e serviços requeridos.
+4. Substitua o valor de exemplo `eastus2` se necessário.
+> **Grupo de recursos (Resource group):** Se seu ambiente de laboratório fornece um grupo de recursos pré-criado, defina `$resourceGroupName` para seu nome. Caso contrário, deixe `$resourceGroupName` vazio para que o script crie um grupo de recursos único na sua assinatura.
 
-> **Note:** `AZURE_DEV_USER_AGENT` tags provisioning for attribution and is not exported to `.env`. Remove it afterward to avoid tagging unrelated commands.
+> **Nota:** `AZURE_DEV_USER_AGENT` marca o provisionamento para atribuição e não é exportado para `.env`. Remova-o depois para evitar marcar comandos não relacionados.
 
-**Validate and provision the infrastructure**
+**Validar e provisionar a infraestrutura**
 
-5. Run the following commands:
+5. Execute os seguintes comandos:
 
 ```powershell
 $azureRegion = 'eastus2'
@@ -112,25 +113,25 @@ azd env get-values | Out-File .env -Encoding utf8
 Remove-Item Env:AZURE_DEV_USER_AGENT
 ```
 
-> **Note:** If provisioning fails, inspect the first deployment error. Check model and region availability, quota, Redis availability, principal ID, and role-assignment permissions. Correct the cause and rerun `azd provision`.
+> **Nota:** Se o provisionamento falhar, inspecione o primeiro erro de implantação. Verifique disponibilidade de modelo e região, cota, disponibilidade do Redis, principal ID e permissões de atribuição de função. Corrija a causa e execute novamente `azd provision`.
 
-**Verify the generated environment**
+**Validar o ambiente gerado**
 
-6. After provisioning succeeds, validate that `.env` includes the Foundry project endpoint, all three model deployment names, the Redis host, and the principal ID required by the application.
-7. Do not add keys, tokens, or connection strings; Redis authentication uses an Entra token obtained at runtime.
+6. Após o provisionamento ser bem-sucedido, valide que `.env` inclua o endpoint do projeto Foundry, os três nomes de implantação, o host do Redis e o principal ID exigido pela aplicação.
+7. Não adicione chaves, tokens ou strings de conexão; a autenticação do Redis usa um token do Microsoft Entra ID obtido em tempo de execução.
 
-## Task 4: Implement the solution
+## Tarefa 4: Implementar a solução
 
-Each placeholder marks incomplete code. Copy each supplied snippet into its placeholder location, remove the `LAB PLACEHOLDER` comment, replace only the indicated incomplete line or block, and preserve the surrounding indentation.
+Cada espaço reservado marca código incompleto. Copie cada trecho fornecido para seu local de placeholder, remova o comentário `LAB PLACEHOLDER`, substitua somente a linha ou bloco incompleto indicado e preserve a indentação ao redor.
 
-The supplied Global Standard `gpt-5.4-mini` prices are versioned evidence for this lab run. Verify and update them if the model, deployment type, currency, or pricing date changes.
+Os preços da Global Standard `gpt-5.4-mini` são evidência versionada para esta execução do laboratório. Verifique e atualize-os se o modelo, tipo de implantação, moeda ou data de precificação mudar.
 
-> **Tip:** After you copy and paste each Python snippet, validate its indentation against the surrounding function or class before running the code.
+> **Dica:** Depois de colar cada trecho Python, valide sua indentação com a função ou classe circundante antes de executar o código.
 
-**Classify request complexity**
+**Classificar a complexidade da solicitação**
 
-1. In `src/main.py`, find `# LAB PLACEHOLDER 1`.
-2. Replace only the incomplete `classify_tier()` function associated with it with:
+1. Em `src/main.py`, encontre `# LAB PLACEHOLDER 1`.
+2. Substitua somente a função incompleta `classify_tier()` associada por:
 
 ```python
 def classify_tier(request: dict[str, Any]) -> int:
@@ -147,12 +148,12 @@ def classify_tier(request: dict[str, Any]) -> int:
   return 1
 ```
 
-The router spends no model tokens and sends exception, high-value, and legal work directly to the highest tier.
+O roteador não consome tokens do modelo e envia exceções, trabalho de alto valor e jurídico diretamente para a camada (tier) mais alta.
 
-**Build priority-based context**
+**Construir contexto por prioridade**
 
-3. Find `# LAB PLACEHOLDER 2`.
-4. Replace only the incomplete `apply_context_budget()` function associated with it with:
+3. Encontre `# LAB PLACEHOLDER 2`.
+4. Substitua somente a função incompleta `apply_context_budget()` associada por:
 
 ```python
 def apply_context_budget(request: dict[str, Any], budget: int) -> str:
@@ -169,12 +170,12 @@ def apply_context_budget(request: dict[str, Any], budget: int) -> str:
   return rendered
 ```
 
-Required facts are preserved or the request fails before invocation; silent truncation cannot remove an authorization or order detail.
+Fatos necessários são preservados ou a solicitação falha antes da invocação; a truncagem silenciosa não pode remover uma autorização ou detalhe de pedido.
 
-**Version exact-result cache keys**
+**Chaves de cache de resultado exato com versionamento**
 
-5. In `src/cache.py`, find `# LAB PLACEHOLDER 3`.
-6. Replace only the incomplete `result_key()` method associated with it with:
+5. Em `src/cache.py`, encontre `# LAB PLACEHOLDER 3`.
+6. Substitua somente o método incompleto `result_key()` associado por:
 
 ```python
   def result_key(cls, request: dict[str, Any], agent_version: str, policy_version: str) -> str:
@@ -189,12 +190,12 @@ Required facts are preserved or the request fails before invocation; silent trun
     return f"aw:result:{cls._digest(signature)}"
 ```
 
-Context, version, and dependency inputs prevent reuse after facts, behavior, or sources change, while the `aw:result` namespace keeps exact responses distinct.
+Contexto, versão e entradas de dependência impedem reutilização depois que fatos, comportamento ou fontes mudam, enquanto o namespace `aw:result` mantém respostas exatas distintas.
 
-**Version prompt-context cache keys**
+**Chaves de cache de contexto de prompt com versionamento**
 
-7. Find `# LAB PLACEHOLDER 4`.
-8. Replace only the incomplete `prompt_key()` method associated with it with:
+7. Encontre `# LAB PLACEHOLDER 4`.
+8. Substitua somente o método incompleto `prompt_key()` associado por:
 
 ```python
   def prompt_key(
@@ -216,25 +217,25 @@ Context, version, and dependency inputs prevent reuse after facts, behavior, or 
     return f"aw:prompt:{cls._digest(signature)}"
 ```
 
-Tier and budget affect prompt construction, so they must participate in the prompt-cache identity.
+Nível (tier) e orçamento afetam a construção do prompt, portanto eles devem participar da identidade do prompt-cache.
 
-**Check the completed code**
+**Verificar o código concluído**
 
-9. Check the completed code locally:
+9. Verifique o código concluído localmente:
 
 ```console
 python -m py_compile src/main.py src/cache.py scripts/compare_runs.py
 python scripts/preflight.py --require-complete
 ```
 
-10. Confirm that compilation returns no output.
-11. Confirm that preflight reports the local files and implementation checks as `ready`; it must remain nonzero until current prices, three deployment names, the project endpoint, Redis host, and principal ID are configured.
+10. Confirme que a compilação não retorna saída.
+11. Confirme que o preflight reporta os arquivos locais e as verificações de implementação como `ready`; ele deve permanecer diferente de zero até que os preços atuais, três nomes de implantação, o endpoint do projeto, o host do Redis e o principal ID sejam configurados.
 
-## Task 5: Run the solution
+## Tarefa 5: Executar a solução
 
-1. Run the benchmark commands in order.
+1. Execute os comandos do benchmark nessa ordem.
 
-The control establishes the premium baseline. The first optimized run uses a cold cache, the second demonstrates exact-result hits, invalidation removes only `SYN-LOOKUP-001`'s exact result, and the final run demonstrates prompt-context reuse for that request.
+O controle estabelece a linha de base premium. A primeira execução otimizada usa um cache frio, a segunda demonstra acertos de resultado exato, a invalidação remove somente o resultado exato de `SYN-LOOKUP-001`, e a execução final demonstra reuso do contexto de prompt para essa solicitação.
 
 ```console
 python -m src.main --policy control --output reports/control-summary.json
@@ -245,73 +246,74 @@ python -m src.main --policy optimized --output reports/optimized-prompt-cached-s
 python scripts/compare_runs.py reports/control-summary.json reports/optimized-summary.json reports/optimized-cached-summary.json
 ```
 
-**Understand the output**
+**Entender a saída**
 
-Each evidence row records `initial_tier`, `final_tier`, deployment, measured tokens, latency, versioned price, quality, retries, and `cache_level`. `miss` means a model call built fresh context, `prompt` means cached context was reused but the model was called, and `exact_result` means no model call occurred. Summary cost includes every retry attempt. `needs_human_review` is set only when tier 3 remains below its quality floor.
+Cada linha de evidência registra `initial_tier`, `final_tier`, implantação, tokens medidos, latência, preço versionado, qualidade, tentativas e `cache_level`. `miss` significa que uma chamada de modelo construiu o contexto do zero, `prompt` significa que o contexto em cache foi reutilizado mas o modelo foi chamado, e `exact_result` significa que nenhuma chamada de modelo ocorreu. O custo resumido inclui cada tentativa de retry. `needs_human_review` é definido somente quando o nível 3 permanece abaixo de seu piso de qualidade.
 
-## Task 6: Validate the implementation
+## Tarefa 6: Validar a implementação
 
-**Inspect the measured evidence**
+**Inspecionar a evidência mensurada**
 
-1. Confirm that every evidence row, including an exact-result cache hit, contains deployment, price version, initial and final tiers, `cache_level`, prompt-cache status, retry count, cost, and quality score.
-2. Confirm that noncached rows also contain measured elapsed milliseconds and actual input and output tokens from the service response.
-3. Inspect the second optimized run for `cache_level: exact_result`.
-4. Run `python -m src.main --invalidate-exact SYN-LOOKUP-001` and record the reported `exact_result_key` and `deleted` count.
-5. Rerun the optimized policy and confirm request `SYN-LOOKUP-001` reports `cache_level: prompt`.
-6. Confirm that the summary `cache_hit_rate` counts both exact-result and prompt hits; use `exact_result_cache_hit_rate` and `prompt_cache_hit_rate` for the per-level breakdown.
-7. Verify Redis contains only the supplied synthetic context and responses, and contains no credentials or real customer data.
+1. Confirme que cada linha de evidência, incluindo um acerto de cache de resultado exato, contém implantação, versão de preço, níveis inicial e final, `cache_level`, status do cache de prompt, contagem de retries, custo e pontuação de qualidade.
+2. Confirme que linhas não em cache também contêm milissegundos decorridos medidos e tokens reais de entrada e saída da resposta do serviço.
+3. Inspecione a segunda execução otimizada para `cache_level: exact_result`.
+4. Execute `python -m src.main --invalidate-exact SYN-LOOKUP-001` e registre o `exact_result_key` e a contagem `deleted` relatados.
+5. Reexecute a política otimizada e confirme que a solicitação `SYN-LOOKUP-001` reporta `cache_level: prompt`.
+6. Confirme que o resumo `cache_hit_rate` contabiliza tanto acertos de resultado exato quanto acertos de prompt; use `exact_result_cache_hit_rate` e `prompt_cache_hit_rate` para a divisão por nível.
+7. Verifique que o Redis contenha somente o contexto sintético e as respostas fornecidas, e não contenha credenciais ou dados reais de clientes.
 
-Base the recommendation on measured evidence, excluding savings from failed requests or unobserved cache hits.
+Baseie a recomendação nas evidências medidas, excluindo economias de solicitações com falha ou acertos de cache não observados.
 
-**Validate the Azure resources**
+**Validar os recursos do Azure**
 
-8. In the Microsoft Foundry portal, validate the provisioned account, project, and deployment named by `TIER1_DEPLOYMENT`, `TIER2_DEPLOYMENT`, and `TIER3_DEPLOYMENT`.
-9. In Azure Managed Redis, validate the provisioned `default` database and Entra `default` access policy assignment.
+8. No portal do Microsoft Foundry, valide a conta provisionada, o projeto e a implantação nomeados por `TIER1_DEPLOYMENT`, `TIER2_DEPLOYMENT` e `TIER3_DEPLOYMENT`.
+9. No Azure Managed Redis, valide o banco de dados `default` provisionado e a atribuição de política de acesso do Microsoft Entra ID `default`.
 
-The standalone lab maps all three routing tiers to one current deployment so that measured differences come from budgets, retries, and caching. In a production experiment, use separately priced and benchmarked deployments when the routing comparison requires model-quality tradeoffs.
+O laboratório autônomo mapeia as três camadas de roteamento para uma implantação atual única de modo que as diferenças medidas provenham de orçamentos, retries e caching. Em um experimento de produção, use implantações precificadas e benchmarkeadas separadamente quando a comparação de roteamento exigir trade-offs de qualidade do modelo.
 
-**Review objective coverage**
+**Revisar cobertura dos objetivos**
 
-| Objective | Required evidence | Passing outcome |
+| Objetivo | Evidência requerida | Resultado esperado |
 |---|---|---|
-| Route requests by complexity | Evidence tier fields | Exception/high-risk cases start at tier 3; simpler cases use lower tiers. |
-| Apply cache separation and invalidation | Cache levels and invalidation output | Exact and prompt keys differ; invalidation removes only the selected exact result. |
-| Enforce context budgets | Completed function and successful runs | Required fields fit the tier budget or fail before a model call. |
-| Compare measured performance and cost | Three summaries and comparison report | Recommendation uses actual tokens, latency, retries, quality, and cache hits. |
+| Encaminhar solicitações por complexidade | Campos de nível na evidência | Casos de exceção/alto risco começam no nível 3; casos mais simples usam níveis inferiores. |
+| Aplicar separação de cache e invalidação | Níveis de cache e saída de invalidação | As chaves de resultado exato e de prompt são diferentes; a invalidação remove somente o resultado exato selecionado. |
+| Aplicar orçamentos de contexto | Função concluída e execuções bem-sucedidas | Os campos obrigatórios cabem no orçamento do nível ou falham antes da chamada ao modelo. |
+| Comparar desempenho e custo medidos | Três resumos e relatório de comparação | A recomendação usa tokens reais, latência, tentativas, qualidade e acertos de cache. |
 
-## Optional challenge: Isolate cache entries by tenant
+## Desafio opcional: Isolar entradas de cache por locatário
 
-Add a synthetic tenant identifier to the request and both cache signatures.
+Adicione um identificador de locatário sintético à solicitação e às duas assinaturas de cache.
 
-**Expected output:** Identical requests from two tenants create distinct cache entries, and targeted invalidation removes only the selected tenant''s result.
+**Saída esperada:** Solicitações idênticas de dois locatários criam entradas de cache distintas, e a invalidação direcionada remove somente o resultado do locatário selecionado.
 
-**Failure investigation:** Use stale invalidation metadata and determine whether the defect is key construction or invalidation scope.
-## Task 7: Review the design
+**Investigação de falha:** Use metadados de invalidação obsoletos e determine se o defeito está na construção da chave ou no escopo da invalidação.
 
-1. Answer these questions:
+## Tarefa 7: Revisar o design
 
-- When did a cheaper initial route cost more because it retried?
-- Which context fields consumed tokens without changing quality?
-- What evidence would justify adding semantic caching rather than exact result caching?
+1. Responda a estas perguntas:
 
-## Task 8: Clean up
+- Quando uma rota inicial mais barata custou mais porque foi re-tentada?
+- Quais campos de contexto consumiram tokens sem alterar a qualidade?
+- Que evidência justificaria adicionar cache semântico em vez de cache de resultado exato?
 
-**Remove Azure resources**
+## Tarefa 8: Limpeza
 
-1. Run `azd down --purge` with `AZURE_DEV_USER_AGENT=microsoft_foundry_skill`.
-2. Remove the local `.env`.
-3. Confirm the resource group and Redis instance are deleted.
+**Remover recursos do Azure**
 
-**Deactivate the virtual environment**
+1. Execute `azd down --purge` com `AZURE_DEV_USER_AGENT=microsoft_foundry_skill`.
+2. Remova o `.env` local.
+3. Confirme que o grupo de recursos e a instância do Redis foram excluídos.
 
-4. Run this command in every terminal where `(.venv)` appears in the prompt:
+**Desativar o ambiente virtual**
+
+4. Execute este comando em cada terminal onde `(.venv)` aparece no prompt:
 
 ```powershell
 deactivate
 ```
 
-5. Confirm that `(.venv)` no longer appears before changing to another lab directory.
+5. Confirme que `(.venv)` não aparece mais antes de trocar para outro diretório de laboratório.
 
-## Summary
+## Resumo
 
-You optimized a live multi-agent workload with routing, caching, token budgets, and quality floors, then selected a policy from actual token, latency, quality, and cost evidence.
+Você otimizou uma carga de trabalho multiagente ativa com roteamento, caching, orçamentos de tokens e pisos de qualidade, e então selecionou uma política com base em evidências reais de tokens, latência, qualidade e custo.

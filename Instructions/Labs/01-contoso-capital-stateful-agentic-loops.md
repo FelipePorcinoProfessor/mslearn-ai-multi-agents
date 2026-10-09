@@ -1,58 +1,59 @@
 ---
 lab:
-  title: 'Design stateful agentic loops with Microsoft Foundry Agent Service'
-  description: 'Implement a bounded Agents v2 reflection loop, persistent conversation, and resumable branch for investment research.'
+  title: 'Projetar ciclos agentivos com estado com Microsoft Foundry Agent Service'
+  description: 'Implemente um loop de reflexão limitado do Agents v2, conversa persistente e ramificação retomável para pesquisa de investimentos.'
   duration: 45
   level: 400
   islab: true
   status: 'released'
+layout: default
 ---
 
-# Design stateful agentic loops with Microsoft Foundry Agent Service
+# Projetar ciclos agentivos com estado com Microsoft Foundry Agent Service
 
-## Customer scenario
+## Cenário do cliente
 
-Contoso Capital needs an investment-research agent that retains multi-turn context, performs bounded self-review, reports completion explicitly, and supports alternate research branches without logging confidential conversation text.
+A Contoso Capital precisa de um agente de pesquisa de investimentos que retenha contexto multi-turno, execute auto-revisão limitada, reporte conclusão explicitamente e suporte ramos alternativos de pesquisa sem registrar texto confidencial da conversa.
 
-## Lab scenario
+## Cenário do laboratório
 
-You will migrate a supplied Agents v1 pattern to Agents v2, deploy the required Foundry resources, and capture conversation, reflection, response, and branch evidence.
+Você migrará um padrão fornecido do Agents v1 para Agents v2, implantará os recursos Foundry necessários e capturará evidências de conversa, reflexão, resposta e ramificação.
 
-By the end of this exercise, you will be able to:
+Ao final deste exercício, você será capaz de:
 
-- Map run-status handling to bounded response handling and exceptions.
-- Implement visible planning and reflection summaries without exposing hidden reasoning.
-- Maintain multi-turn state in a conversation.
-- Fork a research path with `previous_response_id`.
-- Explain agents, conversations, responses, and typed output items.
-- Migrate v1 thread/run/tool concepts to `azure-ai-projects` 2.x.
+- Mapear o tratamento de run-status para tratamento de respostas limitado e exceções.
+- Implementar planejamento visível e resumos de reflexão sem expor raciocínio oculto.
+- Manter estado multi-turno em uma conversa.
+- Fazer fork de um caminho de pesquisa com `previous_response_id`.
+- Explicar agents, conversations, responses e typed output items.
+- Migrar conceitos v1 de thread/run/tool para `azure-ai-projects` 2.x.
 
-> **Important:** The model deployment, Application Insights ingestion, and Log Analytics retention are billable. Use only the synthetic request in `assets`.
+> **Importante:** O deployment do modelo, ingestão no Application Insights e retenção do Log Analytics são cobráveis. Use apenas a solicitação sintética em `assets`.
 
-## Task 1: Prepare the lab
+## Tarefa 1: Preparar o laboratório
 
-You need:
+Você precisará de:
 
 - [Python 3.11 or later](https://www.python.org/downloads/)
-- [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) with [Bicep](https://learn.microsoft.com/azure/azure-resource-manager/bicep/install)
+- [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) com [Bicep](https://learn.microsoft.com/azure/azure-resource-manager/bicep/install)
 - [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd)
 - [Visual Studio Code](https://code.visualstudio.com/download)
-- An Azure subscription with model quota in a supported region
-- Contributor and User Access Administrator on the target resource group, or equivalent preassigned Foundry data-plane access
+- Uma assinatura do Azure com cota de modelo em uma região suportada
+- Contributor e User Access Administrator no grupo de recursos de destino, ou acesso de data-plane do Foundry pré-atribuído equivalente
 
-**Clone and open the repository**
+**Clone e abra o repositório**
 
-1. Clone the [lab source repository](https://github.com/MicrosoftLearning/mslearn-ai-multi-agents), or clone your fork:
+1. Clone o [repositório de origem do laboratório](https://github.com/MicrosoftLearning/mslearn-ai-multi-agents), ou clone seu fork:
 
 ```console
 git clone https://github.com/MicrosoftLearning/mslearn-ai-multi-agents.git
 ```
 
-2. Open the cloned repository in Visual Studio Code.
+2. Abra o repositório clonado no Visual Studio Code.
 
-**Verify tools and authentication**
+**Verifique as ferramentas e a autenticação**
 
-3. Open a PowerShell terminal in Visual Studio Code and run:
+3. Abra um terminal PowerShell no Visual Studio Code e execute:
 
 ```powershell
 cd Allfiles\01-contoso-capital-stateful-agentic-loops
@@ -62,40 +63,40 @@ python --version
 az account show --output table
 ```
 
-4. Confirm that each command succeeds and that `az account show` displays the subscription you intend to use.
-5. If needed, authenticate with `az login` and `azd auth login`, and then repeat the checks.
+4. Confirme que cada comando tem sucesso e que `az account show` exibe a assinatura que você pretende usar.
+5. Se necessário, autentique-se com `az login` e `azd auth login`, e então repita as verificações.
 
-**Architecture checkpoint**
+**Ponto de verificação da arquitetura**
 
-Review these components before editing:
+Revise estes componentes antes de editar:
 
-| Component | What to locate |
+| Componente | O que localizar |
 |---|---|
 | `infra/main.bicep` | Foundry resources, model deployment, and project connection for server-side traces |
 | `src/main.py` | `build_agent_definition`, `run_reflection_cycle`, and `fork_with_previous_response` |
 | `assets/agents-v1-loop.py.txt` | Legacy v1 comparison evidence; do not execute this file |
 
-Before continuing, confirm that you can locate the bounded reflection loop, the alternate response branch, and the legacy pattern used only for comparison.
+Antes de continuar, confirme que você consegue localizar o loop de reflexão limitado, o ramo de resposta alternativo e o padrão legado usado apenas para comparação.
 
-## Task 2: Build the virtual environment
+## Tarefa 2: Construir o ambiente virtual
 
-1. From the lab directory, create and activate the virtual environment:
+1. A partir do diretório do laboratório, crie e ative o ambiente virtual:
 
 ```powershell
 ./scripts/setup.ps1
 . ./.venv/Scripts/Activate.ps1
 ```
 
-> On macOS/Linux, run `bash scripts/setup.sh` and `source .venv/bin/activate` instead.
+> No macOS/Linux, execute `bash scripts/setup.sh` e `source .venv/bin/activate` em vez disso.
 
-2. Confirm that `(.venv)` appears in the terminal prompt.
+2. Confirme que `(.venv)` aparece no prompt do terminal.
 
-## Task 3: Deploy the Azure resources
+## Tarefa 3: Implementar os recursos do Azure
 
-**Set the deployment values**
+**Defina os valores de deployment**
 
-1. Set `$azureRegion` to a region where the selected model is available.
-> **Resource group:** If your lab environment provides a precreated resource group, set `$resourceGroupName` to its name. Otherwise, leave `$resourceGroupName` empty so the script creates a unique resource group in your subscription.
+1. Defina `$azureRegion` para uma região onde o modelo selecionado esteja disponível.
+> **Grupo de recursos (Resource group):** Se seu ambiente de laboratório fornecer um resource group pré-criado, defina `$resourceGroupName` com seu nome. Caso contrário, deixe `$resourceGroupName` vazio para que o script crie um resource group exclusivo na sua assinatura.
 
 ```powershell
 $azureRegion = 'eastus2'
@@ -106,9 +107,9 @@ if ([string]::IsNullOrWhiteSpace($resourceGroupName)) {
 }
 ```
 
-**Validate and provision the infrastructure**
+**Valide e provisione a infraestrutura**
 
-2. Validate Bicep, provision the resources, and export the environment:
+2. Valide o Bicep, provisione os recursos e exporte o ambiente:
 
 ```powershell
 az bicep build --file infra/main.bicep
@@ -124,11 +125,11 @@ azd env get-values | Out-File .env -Encoding utf8
 Remove-Item Env:AZURE_DEV_USER_AGENT
 ```
 
-3. If provisioning fails, inspect the first deployment error. For model or region availability errors, update the relevant environment value and rerun `azd provision`.
+3. Se o provisionamento falhar, inspecione o primeiro erro do deployment. Para erros de disponibilidade de modelo ou região, atualize o valor de ambiente relevante e execute novamente `azd provision`.
 
-**Verify the generated environment**
+**Verifique o ambiente gerado**
 
-4. Open `.env` and confirm that it contains:
+4. Abra `.env` e confirme que ele contém:
 
 - `FOUNDRY_PROJECT_ENDPOINT`
 - `FOUNDRY_MODEL_NAME`
@@ -136,19 +137,19 @@ Remove-Item Env:AZURE_DEV_USER_AGENT
 - `APPLICATIONINSIGHTS_RESOURCE_ID`
 - `LOG_ANALYTICS_WORKSPACE_ID`
 
-The Application Insights connection string is stored in the Foundry project connection and is not written to `.env`.
+A connection string do Application Insights é armazenada na conexão do projeto (project connection) do Foundry e não é gravada em `.env`.
 
-> **Network access for this lab:** The Bicep template enables the Foundry account's native public network access and sets the default network action to **Allow** so the local application can reach the project endpoint. Microsoft Entra authentication and Azure RBAC are still required. After deployment, confirm these settings on the Foundry account **Networking** page. Production environments should use an approved selected-network or private-endpoint design.
+> **Acesso de rede para este laboratório:** O template Bicep habilita o acesso de rede pública nativo da conta Foundry e define a ação de rede padrão como **Allow** para que a aplicação local possa alcançar o endpoint do projeto. Microsoft Entra authentication e Azure RBAC ainda são exigidos. Após o deployment, confirme essas configurações na página Rede (Networking) da conta Foundry. Ambientes de produção devem usar um design de selected-network ou private-endpoint aprovado.
 
-5. Do not add tokens or keys to `.env`.
+5. Não adicione tokens ou chaves em `.env`.
 
-## Task 4: Implement the solution
+## Tarefa 4: Implementar a solução
 
-Each placeholder marks incomplete code. Copy each supplied snippet into its placeholder location, keep the `LAB PLACEHOLDER` comment, replace only the indicated incomplete line or block, and preserve the surrounding indentation.
+Cada placeholder marca código incompleto. Copie cada snippet fornecido para seu local de placeholder, mantenha o comentário `LAB PLACEHOLDER`, substitua apenas a linha ou bloco indicado como incompleto e preserve a indentação circundante.
 
-**Define the prompt agent**
+**Defina o prompt agent**
 
-1. In `src/main.py`, find the placeholder in `build_agent_definition`:
+1. Em `src/main.py`, encontre o placeholder em `build_agent_definition`:
 
 ```python
 # LAB PLACEHOLDER 1: Replace this line with the Task 1 sample.
@@ -173,11 +174,11 @@ return PromptAgentDefinition(
 )
 ```
 
-This definition binds the agent to the deployed model and requests visible summaries plus a stable completion signal. Application code still controls the iteration limit.
+Esta definição vincula o agente ao modelo implantado e solicita resumos visíveis mais um sinal de conclusão estável. O código da aplicação ainda controla o limite de iterações.
 
-**Implement the bounded reflection cycle**
+**Implemente o ciclo de reflexão limitado**
 
-2. In `run_reflection_cycle`, find:
+2. Em `run_reflection_cycle`, encontre:
 
 ```python
 # LAB PLACEHOLDER 2: Replace this line with the Task 2 sample.
@@ -240,11 +241,11 @@ raise RuntimeError(
 )
 ```
 
-The loop keeps all iterations in one conversation, records response IDs and visible output, and stops after `max_iterations`. Logging is limited to iteration number, response ID, and status.
+O loop mantém todas as iterações em uma única conversa, registra IDs de resposta e saída visível, e para após `max_iterations`. O logging é limitado ao número da iteração, response ID e status.
 
-**Create an alternate response branch**
+**Crie um ramo alternativo de resposta**
 
-3. In `fork_with_previous_response`, find:
+3. Em `fork_with_previous_response`, encontre:
 
 ```python
 # LAB PLACEHOLDER 3: Replace this line with the Task 3 sample.
@@ -261,11 +262,11 @@ return openai_client.responses.create(
 )
 ```
 
-Because the call omits `conversation`, `previous_response_id` creates a separate branch without changing the original conversation.
+Porque a chamada omite `conversation`, `previous_response_id` cria um branch separado sem alterar a conversa original.
 
-**Record the v1-to-v2 migration**
+**Registre a migração v1-para-v2**
 
-4. Create `migration-notes.md` in the lab folder with this comparison:
+4. Crie `migration-notes.md` na pasta do laboratório com esta comparação:
 
 ```markdown
 # Agents v1 to v2 migration notes
@@ -285,100 +286,101 @@ multi-turn history, while response chaining creates an auditable alternate branc
 Application code, rather than the model, owns the maximum iteration count.
 ```
 
-5. Compare the table with `assets/agents-v1-loop.py.txt`; do not execute the legacy file.
+5. Compare a tabela com `assets/agents-v1-loop.py.txt`; não execute o arquivo legado.
 
-**Check the completed code**
+**Verifique o código completo**
 
-6. Save `src/main.py` and run the local checks before making a billable model call:
+6. Salve `src/main.py` e execute as verificações locais antes de fazer uma chamada ao modelo que gere cobrança:
 
 ```powershell
 python -m py_compile src/main.py scripts/preflight.py
 python scripts/preflight.py
 ```
 
-7. Confirm that all three markers remain, no `NotImplementedError` remains, and preflight reports `READY (local)`.
+7. Confirme que todos os três marcadores permanecem, nenhum `NotImplementedError` permanece, e o preflight reporta `READY (local)`.
 
-## Task 5: Run the solution
+## Tarefa 5: Executar a solução
 
-1. Run the application once and save its console output:
+1. Execute a aplicação uma vez e salve sua saída no console:
 
 ```powershell
 python -m src.main --input assets/research-request.json --retain-resources 2>&1 | Tee-Object -FilePath artifacts-lab01.txt
 ```
 
-The supplied synthetic scenario contains revenue, earnings before interest, taxes, depreciation, and amortization (EBITDA), debt, liquidity, maturity, contracted-revenue, and permitting facts plus explicit evidence gaps. The branch request adds a 250-basis-point refinancing-cost assumption so you can observe whether the alternate path reuses the original evidence without mutating its conversation history.
+O cenário sintético fornecido contém fatos sobre receita, earnings before interest, taxes, depreciation, and amortization (EBITDA), dívida, liquidez, vencimento, contracted-revenue, e permissões além de lacunas explícitas de evidência. A solicitação de branch adiciona uma suposição de custo de refinancing de 250 basis points para que você possa observar se o caminho alternativo reutiliza a evidência original sem mutar o histórico de conversa.
 
-Authentication messages can show unavailable credential types before `DefaultAzureCredential acquired a token from AzureCliCredential`. That sequence is expected when the application uses your Azure CLI sign-in.
+Mensagens de autenticação podem mostrar tipos de credenciais indisponíveis antes de `DefaultAzureCredential acquired a token from AzureCliCredential`. Essa sequência é esperada quando a aplicação usa seu sign-in do Azure CLI.
 
-By default, the application retains the conversation and exact agent version so that you can inspect them in the Foundry portal. The explicit `--retain-resources` option in the command makes that intent visible and sets `resources_retained` to `true`. If you do not need portal inspection, use `--cleanup-resources`; the application then deletes the conversation and exact agent version it created in a `finally` block, including when a response call fails.
+Por padrão, a aplicação retém a conversa e a versão exata do agente para que você possa inspecioná-las no portal Foundry. A opção explícita `--retain-resources` no comando torna essa intenção visível e define `resources_retained` para `true`. Se você não precisar de inspeção no portal, use `--cleanup-resources`; a aplicação então exclui a conversa e a versão exata do agente que criou em um bloco `finally`, inclusive quando uma chamada de resposta falha.
 
-## Task 6: Validate the implementation
+## Tarefa 6: Validar a implementação
 
-**Validate the captured output**
+**Validar a saída capturada**
 
-1. Locate the identifiers and iteration records:
+1. Localize os identificadores e registros de iteração:
 
 ```powershell
 Select-String -Path artifacts-lab01.txt -Pattern 'agent_version|conversation_id|branch_response_id|iterations'
 ```
 
-2. Confirm that all four fields are present, then open `artifacts-lab01.txt` and check:
+2. Confirme que todos os quatro campos estão presentes, então abra `artifacts-lab01.txt` e verifique:
 
-| Field | Acceptance criteria |
+| Campo | Critérios de aceitação |
 |---|---|
-| `agent_name` and `agent_version` | Identify the named agent and its immutable Foundry version. |
-| `conversation_id` | Starts with `conv_`; all reflection iterations use this conversation. |
-| `resources_retained` | Is `true` for the inspection run. |
-| `iterations` | Contains one to three entries, each with a unique `resp_` response ID, a top-level status, and a nonempty summary containing `PLAN:`, `REFLECTION:`, `STATUS:`, and `ANSWER:`. The final status is `COMPLETE`. |
-| `branch_response_id` | Starts with `resp_` and differs from every iteration response ID; the branch is outside the original conversation. |
-| `branch_text` | Addresses the 250-basis-point refinancing assumption without inventing missing debt or cash-flow data. |
+| `agent_name` and `agent_version` | Identificam o agent nomeado e sua versão Foundry imutável. |
+| `conversation_id` | Começa com `conv_`; todas as iterações de reflexão usam esta conversa. |
+| `resources_retained` | É `true` para a execução de inspeção. |
+| `iterations` | Contém de uma a três entradas, cada uma com um único `resp_` response ID, um status de topo e um sumário não vazio contendo `PLAN:`, `REFLECTION:`, `STATUS:` e `ANSWER:`. O status final é `COMPLETE`. |
+| `branch_response_id` | Começa com `resp_` e difere de todo response ID de iteração; o branch está fora da conversa original. |
+| `branch_text` | Aborda a suposição de refinancing de 250 basis points sem inventar dívida ou dados de fluxo de caixa faltantes. |
 
-`STATUS: COMPLETE` means the bounded review finished; it does not prove that the investment question had sufficient evidence. The application-owned iteration limit prevents an unbounded loop.
+`STATUS: COMPLETE` significa que a revisão limitada terminou; isso não prova que a questão de investimento teve evidência suficiente. O limite de iterações controlado pela aplicação previne um loop ilimitado.
 
-**Validate agent-version lifecycle in Foundry**
+**Validar o ciclo de vida da versão do agente no Foundry**
 
-3. Open the [Foundry portal](https://ai.azure.com) and select the project identified by `FOUNDRY_PROJECT_ENDPOINT` in `.env`.
-4. Select **Agents** > **contoso-investment-researcher** and open its version history.
-5. Confirm that the recorded `agent_version` is present and inspect its definition.
+3. Abra o [portal Foundry (Foundry portal)](https://ai.azure.com) e selecione o projeto identificado por `FOUNDRY_PROJECT_ENDPOINT` em `.env`.
+4. Selecione **Agentes (Agents)** > **contoso-investment-researcher** e abra o histórico de versões.
+5. Confirme que o `agent_version` registrado está presente e inspecione sua definição.
 
-After inspection, delete the retained conversation and agent version in the Foundry portal. For future runs that do not require inspection, pass `--cleanup-resources`. That option cleans up only the resources created by that run; it does not delete versions retained by earlier runs. Version numbers can be greater than `1` after repeated runs.
+Após a inspeção, exclua a conversa retida e a versão do agente no portal Foundry (Foundry portal). Para execuções futuras que não exigem inspeção, passe `--cleanup-resources`. Essa opção limpa apenas os recursos criados por essa execução; não exclui versões retidas por execuções anteriores. Números de versão podem ser maiores que `1` após execuções repetidas.
 
-**Validate the response traces**
+**Validar os traces de resposta**
 
-6. Select **Agents** > **Traces** and set the time range to include the run.
+6. Selecione **Agentes (Agents)** > **Rastreamentos (Traces)** e defina o intervalo de tempo para incluir a execução.
 
-Trace ingestion can take several minutes.
+A ingestão de rastreamentos pode levar vários minutos.
 
-7. Search for each iteration `response_id` and the `branch_response_id`.
-8. Confirm that:
+7. Pesquise por cada iteração `response_id` e pelo `branch_response_id`.
+8. Confirme que:
 
-- Each trace shows the expected agent name, agent version, response ID, timestamp, and successful response operation.
-- Iteration responses use the recorded `conversation_id` where conversation metadata is available.
-- The branch response chains from the final response without joining the conversation.
+- Cada trace mostra o nome do agente, a versão do agente, response ID, timestamp e operação de resposta bem-sucedida esperados.
+- Respostas de iteração usam o `conversation_id` registrado quando metadata da conversa está disponível.
+- A resposta de branch encadeia a partir da resposta final sem juntar-se à conversa.
 
-The traces prove the Foundry calls. `artifacts-lab01.txt` proves the application-owned iteration limit and branch decision.
+Os traces provam as chamadas ao Foundry. `artifacts-lab01.txt` prova o limite de iteração controlado pela aplicação e a decisão de ramificação.
 
-## Optional challenge: Verify branch isolation
+## Desafio opcional: Verificar isolamento de branch
 
-Create a second fork from the same parent response, give the two forks different synthetic follow-up facts, and compare their final state summaries.
+Crie um segundo fork a partir da mesma resposta pai, dê aos dois forks fatos sintéticos de follow-up diferentes e compare seus resumos de estado finais.
 
-**Expected output:** Each fork reports its own fact, neither fork reports the other fork''s fact, and the parent conversation remains unchanged. Record the parent and fork response IDs as evidence.
+**Saída esperada:** Cada fork relata seu próprio fato, nenhum fork relata o fato do outro fork, e a conversa pai permanece inalterada. Registre os response IDs do pai e dos forks como evidência.
 
-**Failure investigation:** Remove one persisted state field from a local copy of the session record, rerun the continuation, and identify the first missing continuity signal. Restore the field before cleanup.
-## Task 7: Review the design
+**Investigação de falha:** Remova um campo de estado persistido de uma cópia local do registro de sessão, execute a continuação novamente e identifique o primeiro sinal de continuidade ausente. Restaure o campo antes da limpeza.
 
-1. Answer these questions:
+## Tarefa 7: Revisar o design
 
-- When is a conversation preferable to `previous_response_id` chaining?
-- Which completion signal belongs in model instructions, and which limit must remain application-owned?
-- How would you migrate historical v1 thread state when the migration tool moves code but not data?
-- Which branch metadata should be retained for audit without retaining sensitive prompt text?
+1. Responda estas perguntas:
 
-## Task 8: Clean up
+- Quando uma conversation é preferível ao encadeamento `previous_response_id`?
+- Qual sinal de conclusão pertence às instruções do modelo, e qual limite deve permanecer controlado pela aplicação?
+- Como você migraria o estado histórico de thread do v1 quando a ferramenta de migração move o código mas não os dados?
+- Qual metadata de branch deve ser retida para auditoria sem reter texto sensível do prompt?
 
-**Remove the Azure resources**
+## Tarefa 8: Limpeza
 
-1. Run the following commands:
+**Remover os recursos do Azure**
+
+1. Execute os comandos a seguir:
 
 ```powershell
 $env:AZURE_DEV_USER_AGENT='microsoft_foundry_skill'
@@ -387,24 +389,24 @@ Remove-Item Env:AZURE_DEV_USER_AGENT
 az group show --name (azd env get-value AZURE_RESOURCE_GROUP) --output none
 ```
 
-2. Confirm that the final command reports that the resource group no longer exists.
+2. Confirme que o comando final relata que o resource group não existe mais.
 
-**Remove local generated files**
+**Remover arquivos gerados localmente**
 
-3. Run the following command:
+3. Execute o comando a seguir:
 
 ```powershell
 Remove-Item .env, artifacts-lab01.txt -ErrorAction SilentlyContinue
 ```
 
-**Deactivate the virtual environment**
+**Desativar o ambiente virtual**
 
-4. In every terminal where `(.venv)` appears, run:
+4. Em todo terminal onde `(.venv)` aparecer, execute:
 
 ```powershell
 deactivate
 ```
 
-## Summary
+## Resumo
 
-You migrated a stateful loop to Agents v2, implemented bounded reflection, retained context in a conversation, created a response branch, and validated the behavior against a live Foundry project.
+Você migrou um loop stateful para Agents v2, implementou reflexão limitada, reteve contexto em uma conversa, criou um branch de resposta e validou o comportamento contra um projeto Foundry ativo.
